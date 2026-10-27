@@ -1,0 +1,109 @@
+{
+  "name": "@lzimul/minecraft-mcp",
+  "description": "Minecraft Model Context Protocol (MCP) Server",
+  "version": "1.0.4",
+  "author": {
+    "name": "lZiMUl",
+    "email": "lZiMUl@lzimul.com",
+    "url": "https://www.lzimul.com"
+  },
+  "contributors": [
+    {
+      "name": "lZiMUl",
+      "email": "lZiMUl@lzimul.com",
+      "url": "https://www.lzimul.com"
+    }
+  ],
+  "maintainers": [
+    {
+      "name": "lZiMUl",
+      "email": "lZiMUl@lzimul.com",
+      "url": "https://www.lzimul.com"
+    }
+  ],
+  "homepage": "https://projects.lzimul.com/minecraft-mcp",
+  "type": "module",
+  "license": "MIT",
+  "main": "./build/index.js",
+  "types": "./lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./build/index.js"
+    }
+  },
+  "bin": {
+    "lzimul-minecraft-mcp": "./build/index.js"
+  },
+  "scripts": {
+    "start": "node .",
+    "lint": "npx eslint --fix",
+    "build": "npm run lint && npx tsc -p ./tsconfig.json && npm run typedoc",
+    "typedoc": "npx typedoc --options ./typedoc.json",
+    "dev": "npm run build && npm run start",
+    "generate-data": "node ./scripts/generate-data.mjs",
+    "clean": "node ./scripts/clean.mjs",
+    "test": "node ./scripts/smoke-test.mjs && node ./scripts/protocol-test.mjs && node ./scripts/persistence-test.mjs && node ./scripts/error-test.mjs && node ./scripts/stress-test.mjs",
+    "test:stress": "node ./scripts/stress-test.mjs"
+  },
+  "files": [
+    "./build/",
+    "./lib/",
+    "./LICENSE",
+    "./README.md",
+    "./SECURITY.md"
+  ],
+  "keywords": [
+    "lzimul",
+    "minecraft",
+    "mcp",
+    "model-context-protocol",
+    "minecraft-mcp"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "overrides": {
+    "katex": "^0.19.1"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.4.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@eslint/css": "^2.0.1",
+    "@eslint/eslintrc": "^3.3.7",
+    "@eslint/js": "^10.0.1",
+    "@eslint/json": "^2.1.1",
+    "@eslint/markdown": "^8.0.3",
+    "@types/node": "^26.6.5",
+    "@typescript-eslint/eslint-plugin": "^8.72.0",
+    "@typescript-eslint/parser": "^8.72.0",
+    "eslint": "^10.13.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.7",
+    "globals": "^17.13.0",
+    "jiti": "^2.7.0",
+    "prettier": "^3.9.10",
+    "tslib": "^2.8.1",
+    "typedoc": "^0.28.20",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lZiMUl/minecraft-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/lZiMUl/minecraft-mcp/issues",
+    "email": "lZiMUl@lzimul.com"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "provenance": true,
+    "access": "public",
+    "tag": "latest"
+  },
+  "sideEffects": false,
+  "private": false
+}
