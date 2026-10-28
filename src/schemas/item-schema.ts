@@ -2,6 +2,7 @@ import * as z from 'zod/v4';
 
 import type { IItem } from '../interfaces/item.interface.js';
 
+/** Public item properties; optional fields are omitted when unavailable. */
 export const itemInfoSchema = z.object({
   key: z.string(),
   name: z.string(),
@@ -14,6 +15,7 @@ export const itemInfoSchema = z.object({
 
 export type ItemInfo = z.infer<typeof itemInfoSchema>;
 
+/** Project a registry item, copying optional arrays so callers cannot mutate them. */
 export function toItemInfo(item: IItem): ItemInfo {
   const info: ItemInfo = {
     key: item.key,

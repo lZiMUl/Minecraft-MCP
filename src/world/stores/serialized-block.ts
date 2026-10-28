@@ -1,5 +1,5 @@
 import { getBlockByName } from '../../data/blocks.js';
-import { normalizeStates } from '../block-states.js';
+import { isEmptyStates, normalizeStates } from '../block-states.js';
 
 import type { IPlacedBlock } from '../../interfaces/placed-block.interface.js';
 import type { BlockStates } from '../../interfaces/block-states.interface.js';
@@ -13,25 +13,24 @@ export interface ISerializedBlock {
   readonly states?: BlockStates;
 }
 
+/** Convert a placed block to its compact snapshot representation. */
 export function toSerialized(placed: IPlacedBlock): ISerializedBlock {
-  const states = normalizeStates(placed.states);
-  if (Object.keys(states).length === 0) {
-    return {
-      x: placed.x,
-      y: placed.y,
-      z: placed.z,
-      block: placed.block.key
-    };
+  const { x, y, z, block, states } = placed;
+
+  if (isEmptyStates(states)) {
+    return { x, y, z, block: block.key };
   }
+
   return {
-    x: placed.x,
-    y: placed.y,
-    z: placed.z,
-    block: placed.block.key,
-    states
+    x,
+    y,
+    z,
+    block: block.key,
+    states: normalizeStates(states)
   };
 }
 
+/** Read and sanitize a persisted state map. */
 function readStates(value: unknown): BlockStates {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     return {};

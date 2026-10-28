@@ -4,6 +4,11 @@ import { errorResource } from './error-content.js';
 
 import type { IDataEntry } from '../interfaces/data-entry.interface.js';
 
+/**
+ * Serialize a registry entry once and reuse the string for every read. The
+ * generated registry is immutable, so caching is safe and keeps resource reads
+ * cheap even for large indexes.
+ */
 function lazyJsonText(build: () => unknown): () => string {
   let cached = '';
   return () => {
@@ -14,6 +19,7 @@ function lazyJsonText(build: () => unknown): () => string {
   };
 }
 
+/** Register a compact index resource for a generated registry. */
 export function registerDataIndexResource<T extends IDataEntry>(
   server: McpServer,
   config: {
@@ -54,6 +60,7 @@ export function registerDataIndexResource<T extends IDataEntry>(
   );
 }
 
+/** Register one `lzimul://minecraft/<prefix>/<name>` resource per entry. */
 export function registerDataEntryResources<T extends IDataEntry>(
   server: McpServer,
   config: {

@@ -4,6 +4,7 @@ import { MemoryWorldStore } from './memory-world-store.js';
 
 import type { IWorldStore } from '../../interfaces/world-store.interface.js';
 
+/** Build the store selected by the environment configuration. */
 export function createWorldStore(): IWorldStore {
   if (WORLD_STORAGE.kind === 'memory') {
     return new MemoryWorldStore();

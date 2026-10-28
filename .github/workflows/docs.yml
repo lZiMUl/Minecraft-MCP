@@ -1,0 +1,47 @@
+name: Generate Docs
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  typedoc:
+    name: Build and deploy API docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: npm
+          registry-url: https://registry.npmjs.org/
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Configure TypeDoc source remote
+        run: git config remote.Minecraft-MCP.url "${{ github.server_url }}/${{ github.repository }}.git"
+
+      - name: Generate API docs
+        run: npm run typedoc
+
+      - name: Deploy to gh-pages
+        if: github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./docs
+          user_name: "lZiMUl [bot]"
+          user_email: "bots@lzimul.com"
+          commit_message: "docs: publish API documentation from ${{ github.sha }}"
+          enable_jekyll: true

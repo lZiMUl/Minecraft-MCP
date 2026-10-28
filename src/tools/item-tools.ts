@@ -6,6 +6,7 @@ import { itemInfoSchema, toItemInfo } from '../schemas/item-schema.js';
 import { toErrorMessage } from '../utils/error-message.js';
 import { toolError } from './result.js';
 
+/** Register the item lookup tool. */
 export function registerItemTools(server: McpServer): void {
   server.registerTool(
     'getItem',
