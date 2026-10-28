@@ -1,0 +1,402 @@
+<!DOCTYPE html><html class="default" lang="en" data-base="./"><head><meta charset="utf-8"/><meta http-equiv="x-ua-compatible" content="IE=edge"/><title>lZiMUl Minecraft MCP</title><meta name="description" content="Documentation for lZiMUl Minecraft MCP"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="assets/style.css"/><link rel="stylesheet" href="assets/highlight.css"/><script defer src="assets/main.js"></script><script async src="assets/icons.js" id="tsd-icons-script"></script><script async src="assets/search.js" id="tsd-search-script"></script><script async src="assets/navigation.js" id="tsd-nav-script"></script><script async src="assets/hierarchy.js" id="tsd-hierarchy-script"></script></head><body><script>document.documentElement.dataset.theme = localStorage.getItem("tsd-theme") || "os";document.body.style.display="none";setTimeout(() => window.app?app.showPage():document.body.style.removeProperty("display"),500)</script><header class="tsd-page-toolbar">
+<div class="tsd-toolbar-contents container"><a href="index.html" class="title">lZiMUl Minecraft MCP</a>
+<div id="tsd-toolbar-links"></div><button id="tsd-search-trigger" class="tsd-widget" aria-label="Search"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="assets/icons.svg#icon-search"></use></svg></button><dialog id="tsd-search" aria-label="Search"><input role="combobox" id="tsd-search-input" aria-controls="tsd-search-results" aria-autocomplete="list" aria-expanded="true" autocapitalize="off" autocomplete="off" placeholder="Search the docs" maxLength="100"/>
+<ul role="listbox" id="tsd-search-results"></ul>
+<div id="tsd-search-status" aria-live="polite" aria-atomic="true">
+<div>Preparing search index...</div></div></dialog><a href="#" class="tsd-widget menu" id="tsd-toolbar-menu-trigger" data-toggle="menu" aria-label="Menu"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><use href="assets/icons.svg#icon-menu"></use></svg></a></div></header>
+<div class="container container-main">
+<div class="col-content">
+<div class="tsd-page-title">
+<h1>lZiMUl Minecraft MCP</h1></div>
+<div class="tsd-panel tsd-typography"><h1 id="lzimul-minecraft-mcp" class="tsd-anchor-link">lZiMUl Minecraft MCP<a href="#lzimul-minecraft-mcp" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h1>
+<p>Minecraft Model Context Protocol (MCP) server. It exposes the complete Minecraft registry (Java Edition data) as MCP resources and provides tools to read, write, query and fill blocks, inspect dimensions, create, move and delete entities and players, set their positions, and manage inventories in persisted, per-dimension worlds. Requires Node.js 22 or newer.</p>
+<h2 id="features" class="tsd-anchor-link">Features<a href="#features" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<ul>
+<li>All Minecraft blocks, items and entity types exposed as MCP resources with full properties (name, hardness, blast resistance, durability, enchantment categories, light level, collision box, entity dimensions, category, and more)</li>
+<li>Block lookup, placement, area queries and bounded fill tools backed by simulated dimensions (Overworld, The Nether, The End), each with its own isolated world state and height range</li>
+<li>Block states are supported everywhere: <code>minecraft:oak_stairs[facing=south,half=bottom]</code></li>
+<li>Dimension tools for metadata, paginated block access, entity listings and raw JSON snapshots</li>
+<li>Entity and player tools with deletion, movement, exact position control, and a 9-slot hotbar plus 27-slot backpack per entity, managed through <code>getInventory</code>, <code>setInventory</code>, <code>clearInventory</code> and <code>swapInventorySlots</code></li>
+<li>World state (blocks, entities, players and inventories) is persisted per dimension as JSON and survives restarts</li>
+<li>log4js logging to stderr with chalk colours (error red, warn yellow, info green); stdout stays clean for the MCP transport</li>
+<li>Structured tool output (<code>outputSchema</code> / <code>structuredContent</code>) plus human readable text</li>
+<li>Every failure path returns a readable message instead of an unhandled exception</li>
+<li>Tool annotations for safe client automation</li>
+</ul>
+<h2 id="protocol" class="tsd-anchor-link">Protocol<a href="#protocol" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p>The server implements the MCP <code>2026-07-28</code> revision. Modern clients open a session with <code>server/discover</code> and carry the per-request envelope in every request's <code>params._meta</code> (<code>io.modelcontextprotocol/protocolVersion</code>, <code>io.modelcontextprotocol/clientCapabilities</code>, and optionally <code>io.modelcontextprotocol/clientInfo</code>). Responses use the modern result shape (<code>resultType</code>, server identity under <code>_meta['io.modelcontextprotocol/serverInfo']</code>). The legacy <code>initialize</code> handshake is rejected with error <code>-32022</code>; clients must use <code>server/discover</code> or send the per-request envelope.</p>
+<h2 id="tools" class="tsd-anchor-link">Tools<a href="#tools" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>getBlock</code></td>
+<td>Get the block (and its states) at coordinates in a dimension (defaults to <code>overworld</code>)</td>
+</tr>
+<tr>
+<td><code>setBlock</code></td>
+<td>Place a block with optional states in a dimension and return the replaced block</td>
+</tr>
+<tr>
+<td><code>getDimension</code></td>
+<td>Get dimension metadata, block count, entity count and player count</td>
+</tr>
+<tr>
+<td><code>getDimensionBlocks</code></td>
+<td>Page through every placed (non-air) block in a dimension, sorted by coordinates</td>
+</tr>
+<tr>
+<td><code>getBlocksInArea</code></td>
+<td>Page through placed blocks inside a box, with an optional block and states filter</td>
+</tr>
+<tr>
+<td><code>fillBlocks</code></td>
+<td>Fill a box with one block, optionally replacing existing blocks; air clears the box</td>
+</tr>
+<tr>
+<td><code>getDimensionEntities</code></td>
+<td>List every entity and player in a dimension with type, name and position</td>
+</tr>
+<tr>
+<td><code>getDimensionRawFile</code></td>
+<td>Return the raw dimension JSON snapshot, including <code>blocks</code> and <code>entities</code></td>
+</tr>
+<tr>
+<td><code>getItem</code></td>
+<td>Look up item properties by id (<code>minecraft:diamond_sword</code> or <code>diamond_sword</code>)</td>
+</tr>
+<tr>
+<td><code>createEntity</code></td>
+<td>Create a non-player entity with an empty hotbar and backpack</td>
+</tr>
+<tr>
+<td><code>getEntity</code></td>
+<td>Get an entity by UUID, including position, dimension and full inventory</td>
+</tr>
+<tr>
+<td><code>deleteEntity</code></td>
+<td>Delete an entity or player by UUID or player name and discard its inventory</td>
+</tr>
+<tr>
+<td><code>moveEntity</code></td>
+<td>Move an entity one block forward, back, left, right, up or down</td>
+</tr>
+<tr>
+<td><code>getEntityPosition</code></td>
+<td>Get an entity UUID, type, name and exact <code>x</code>/<code>y</code>/<code>z</code> position</td>
+</tr>
+<tr>
+<td><code>setEntityPosition</code></td>
+<td>Set an entity UUID to an exact <code>x</code>/<code>y</code>/<code>z</code> position</td>
+</tr>
+<tr>
+<td><code>createPlayer</code></td>
+<td>Create a uniquely named player with an empty hotbar and backpack</td>
+</tr>
+<tr>
+<td><code>getPlayer</code></td>
+<td>Get a player by name (case-insensitive), including position, dimension and full inventory</td>
+</tr>
+<tr>
+<td><code>getInventory</code></td>
+<td>Read the 9 hotbar slots and 27 backpack slots of an entity or player</td>
+</tr>
+<tr>
+<td><code>clearInventory</code></td>
+<td>Remove every item from an entity or player inventory</td>
+</tr>
+<tr>
+<td><code>swapInventorySlots</code></td>
+<td>Swap any two hotbar or backpack slots of an entity or player</td>
+</tr>
+<tr>
+<td><code>setInventory</code></td>
+<td>Set or clear one hotbar/backpack slot of an entity or player</td>
+</tr>
+</tbody>
+</table>
+<p><code>setBlock</code> accepts both the full form (<code>minecraft:oak_stairs[facing=south,half=bottom]</code>) and the short form (<code>oak_stairs[facing=south]</code>). Setting <code>minecraft:air</code> removes the block; air cannot carry states.</p>
+<p><code>getDimensionBlocks</code> is paginated because a dimension can hold up to 250,000 placed blocks. <code>limit</code> defaults to 1,000 and is capped at 10,000; <code>offset</code> skips rows. Rows are sorted by <code>x</code>, <code>y</code>, <code>z</code> and include the block id, display name and states.</p>
+<p><code>getBlocksInArea</code> reads an inclusive box in one dimension. Its corners may be supplied in any order, and the optional <code>blockType</code> filter matches the block id; when states are included, the stored state map must match exactly. The same <code>limit</code>/<code>offset</code> pagination applies.</p>
+<p><code>fillBlocks</code> writes one block type into an inclusive box. By default it fills only air; set <code>overwrite</code> to <code>true</code> to replace existing blocks. Use <code>minecraft:air</code> with <code>overwrite</code> to clear a region. A single request is limited to 16,384 coordinates, and the result reports changed, placed, removed and skipped counts.</p>
+<p><code>getDimensionEntities</code> lists entity and player summaries, sorted by UUID; use <code>getEntity</code> or <code>getInventory</code> when you need the full inventory of one record. The former <code>getDimensionEntitys</code> spelling is no longer registered. <code>getDimensionRawFile</code> returns the same raw JSON format that is written to disk, so the result can be loaded directly by <code>app/minecraft_world_viewer.html</code>.</p>
+<h3 id="entities-players-and-inventories" class="tsd-anchor-link">Entities, players and inventories<a href="#entities-players-and-inventories" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<ul>
+<li>Entity type ids come from the generated registry (<code>lzimul://minecraft/entities</code>), for example <code>minecraft:zombie</code> or <code>zombie</code>. <code>createEntity</code> rejects <code>minecraft:player</code>; use <code>createPlayer</code> for players.</li>
+<li>Players are addressed by name, case-insensitively, and names are unique across all dimensions. Entity and player UUIDs come from the creation response.</li>
+<li>Every entity and player has a 9-slot hotbar plus a 27-slot backpack (36 slots total). Slots are zero-based within their section.</li>
+<li><code>getInventory</code>, <code>setInventory</code>, <code>clearInventory</code>, <code>swapInventorySlots</code> and <code>deleteEntity</code> accept either an entity UUID or a player name. <code>setInventory</code> requires <code>section</code> (<code>hotbar</code> or <code>inventory</code>, default <code>inventory</code>), <code>slot</code>, <code>item</code> and <code>count</code>; <code>swapInventorySlots</code> requires two section/slot pairs.</li>
+<li><code>count</code> must not exceed the item's stack size. Set the item to <code>minecraft:air</code> or the count to <code>0</code> to clear a slot. Empty slots are returned as <code>null</code>. <code>clearInventory</code> removes all 36 slots at once.</li>
+<li><code>deleteEntity</code> removes the entity or player and its inventory from its dimension. Deleting a player frees the name for reuse.</li>
+<li><code>moveEntity</code> moves exactly one block and takes only an entity UUID and a direction: <code>forward</code> (<code>+Z</code>, south), <code>back</code> (<code>-Z</code>, north), <code>left</code> (<code>-X</code>, west), <code>right</code> (<code>+X</code>, east), <code>up</code> (<code>+Y</code>) or <code>down</code> (<code>-Y</code>). The destination must remain inside the entity's dimension.</li>
+<li><code>getEntityPosition</code> returns the entity UUID, type, name and <code>x</code>/<code>y</code>/<code>z</code>; <code>setEntityPosition</code> takes an entity UUID plus a nested <code>{ &quot;x&quot;: ..., &quot;y&quot;: ..., &quot;z&quot;: ... }</code> position.</li>
+<li>A dimension holds at most 10,000 entities and players combined. Entity names are limited to 64 characters and player names to 32 characters (<code>A-Z</code>, <code>a-z</code>, <code>0-9</code>, <code>_</code>).</li>
+</ul>
+<h2 id="persistence" class="tsd-anchor-link">Persistence<a href="#persistence" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p>World snapshots are stored as one JSON document per dimension, so the dimensions never share a file:</p>
+<pre><code class="text">app/dimensions/
+  overworld.json
+  the_nether.json
+  the_end.json
+</code><button type="button">Copy</button></pre>
+
+<p>Each snapshot looks like this:</p>
+<pre><code class="json"><span class="hl-0">{</span><br/><span class="hl-0">  </span><span class="hl-1">&quot;format&quot;</span><span class="hl-0">: </span><span class="hl-2">&quot;lzimul:minecraft/dimension&quot;</span><span class="hl-0">,</span><br/><span class="hl-0">  </span><span class="hl-1">&quot;dimension&quot;</span><span class="hl-0">: </span><span class="hl-2">&quot;minecraft:overworld&quot;</span><span class="hl-0">,</span><br/><span class="hl-0">  </span><span class="hl-1">&quot;updatedAt&quot;</span><span class="hl-0">: </span><span class="hl-2">&quot;2026-01-01T00:00:00.000Z&quot;</span><span class="hl-0">,</span><br/><span class="hl-0">  </span><span class="hl-1">&quot;modifiedBlockCount&quot;</span><span class="hl-0">: </span><span class="hl-3">1</span><span class="hl-0">,</span><br/><span class="hl-0">  </span><span class="hl-1">&quot;entityCount&quot;</span><span class="hl-0">: </span><span class="hl-3">1</span><span class="hl-0">,</span><br/><span class="hl-0">  </span><span class="hl-1">&quot;blocks&quot;</span><span class="hl-0">: [</span><br/><span class="hl-0">    {</span><br/><span class="hl-0">      </span><span class="hl-1">&quot;x&quot;</span><span class="hl-0">: </span><span class="hl-3">0</span><span class="hl-0">,</span><br/><span class="hl-0">      </span><span class="hl-1">&quot;y&quot;</span><span class="hl-0">: </span><span class="hl-3">64</span><span class="hl-0">,</span><br/><span class="hl-0">      </span><span class="hl-1">&quot;z&quot;</span><span class="hl-0">: </span><span class="hl-3">0</span><span class="hl-0">,</span><br/><span class="hl-0">      </span><span class="hl-1">&quot;block&quot;</span><span class="hl-0">: </span><span class="hl-2">&quot;minecraft:oak_stairs&quot;</span><span class="hl-0">,</span><br/><span class="hl-0">      </span><span class="hl-1">&quot;states&quot;</span><span class="hl-0">: { </span><span class="hl-1">&quot;facing&quot;</span><span class="hl-0">: </span><span class="hl-2">&quot;south&quot;</span><span class="hl-0">, </span><span class="hl-1">&quot;half&quot;</span><span class="hl-0">: </span><span class="hl-2">&quot;bottom&quot;</span><span class="hl-0"> }</span><br/><span class="hl-0">    }</span><br/><span class="hl-0">  ],</span><br/><span class="hl-0">  </span><span class="hl-1">&quot;entities&quot;</span><span class="hl-0">: [</span><br/><span class="hl-0">    {</span><br/><span class="hl-0">      </span><span class="hl-1">&quot;id&quot;</span><span class="hl-0">: </span><span class="hl-2">&quot;0f0f2f4e-7d5a-4d8e-9a3b-2f6c1d8e4a10&quot;</span><span class="hl-0">,</span><br/><span class="hl-0">      </span><span class="hl-1">&quot;kind&quot;</span><span class="hl-0">: </span><span class="hl-2">&quot;player&quot;</span><span class="hl-0">,</span><br/><span class="hl-0">      </span><span class="hl-1">&quot;type&quot;</span><span class="hl-0">: </span><span class="hl-2">&quot;minecraft:player&quot;</span><span class="hl-0">,</span><br/><span class="hl-0">      </span><span class="hl-1">&quot;name&quot;</span><span class="hl-0">: </span><span class="hl-2">&quot;Steve&quot;</span><span class="hl-0">,</span><br/><span class="hl-0">      </span><span class="hl-1">&quot;x&quot;</span><span class="hl-0">: </span><span class="hl-3">1</span><span class="hl-0">,</span><br/><span class="hl-0">      </span><span class="hl-1">&quot;y&quot;</span><span class="hl-0">: </span><span class="hl-3">64</span><span class="hl-0">,</span><br/><span class="hl-0">      </span><span class="hl-1">&quot;z&quot;</span><span class="hl-0">: </span><span class="hl-3">0</span><span class="hl-0">,</span><br/><span class="hl-0">      </span><span class="hl-1">&quot;createdAt&quot;</span><span class="hl-0">: </span><span class="hl-2">&quot;2026-01-01T00:00:00.000Z&quot;</span><br/><span class="hl-0">    }</span><br/><span class="hl-0">  ]</span><br/><span class="hl-0">}</span>
+</code><button type="button">Copy</button></pre>
+
+<ul>
+<li>The whole dimension (blocks, entities and players) is loaded once at startup and kept in memory; mutations are written back debounced and atomically (temporary file + rename).</li>
+<li><code>setBlock</code>, <code>fillBlocks</code>, <code>createEntity</code>, <code>deleteEntity</code>, <code>createPlayer</code>, <code>setInventory</code>, <code>clearInventory</code>, <code>swapInventorySlots</code>, <code>moveEntity</code> and <code>setEntityPosition</code> await the write, so a successful response means the change is durably stored. If persisting fails the tool returns an error instead of pretending success.</li>
+<li>Parallel tool calls share a single in-flight snapshot write instead of writing one full file per call, so building with many simultaneous <code>setBlock</code> calls stays fast.</li>
+<li>Unmodified coordinates are air; only placed blocks are stored. Placing air removes the coordinate from the snapshot.</li>
+<li>Empty state maps are omitted from the file to keep snapshots small.</li>
+<li>Entity and player inventories are omitted when they are completely empty. When present, <code>inventory.hotbar</code> has 9 entries and <code>inventory.inventory</code> has 27 entries; each entry is <code>{ &quot;item&quot;: &quot;minecraft:diamond_sword&quot;, &quot;count&quot;: 1 }</code> or <code>null</code>.</li>
+<li>Player names are not stored in a separate index: the player name index is rebuilt from the snapshots when the world loads. If two dimension files contain the same case-insensitive name, the first dimension wins and the duplicate player is dropped with a warning.</li>
+<li>Snapshots are written as compact JSON (about half the bytes of pretty-printed JSON) with a trailing newline.</li>
+<li>Files written by format v1 (<code>lzimul-world/1</code>, no states) and v2 (<code>lzimul-world/2</code>, no entities) still load; new files use <code>lzimul:minecraft/dimension</code> and include an <code>entities</code> array. A missing <code>entities</code> array simply means the dimension has no entities.</li>
+<li>Malformed block or entity entries are skipped without discarding the rest of the dimension. An entity's dimension always comes from the file it was loaded from, so an entry cannot claim to live in another dimension.</li>
+<li>A dimension file is created on its first write; untouched dimensions stay empty.</li>
+</ul>
+<h3 id="configuration" class="tsd-anchor-link">Configuration<a href="#configuration" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MCP_WORLD_STORAGE</code></td>
+<td><code>file</code></td>
+<td><code>file</code> for JSON snapshots, <code>memory</code> for volatile state</td>
+</tr>
+<tr>
+<td><code>MCP_WORLD_DIR</code></td>
+<td><code>./app/dimensions</code></td>
+<td>Directory that holds the per-dimension snapshots</td>
+</tr>
+<tr>
+<td><code>MCP_LOG_LEVEL</code></td>
+<td><code>info</code></td>
+<td>log4js level: <code>trace</code>, <code>debug</code>, <code>info</code>, <code>warn</code>, <code>error</code></td>
+</tr>
+</tbody>
+</table>
+<p>A corrupt or oversized snapshot is moved aside as <code>&lt;dimension&gt;.json.corrupt-&lt;uuid&gt;</code> and the dimension starts empty, so a bad file never blocks startup.</p>
+<h3 id="logging" class="tsd-anchor-link">Logging<a href="#logging" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>Server logs use <a href="https://log4js-node.github.io/log4js-node/">log4js</a> with a chalk-based layout. <code>error</code>/<code>fatal</code> are red, <code>warn</code> yellow, <code>info</code> green, <code>debug</code> cyan and <code>trace</code> blue. Chalk disables ANSI colours automatically when the output is redirected to a non-colour terminal.</p>
+<p>Logs are written to <strong>stderr</strong>, never stdout: stdout is the MCP JSON-RPC transport, so mixing log lines into it would corrupt the protocol stream. <code>MCP_LOG_LEVEL</code> controls the verbosity (default <code>info</code>). Developer scripts use a small stdout logger (<code>scripts/logger.mjs</code>) with the same colours, so test output stays readable.</p>
+<h3 id="storage-backends" class="tsd-anchor-link">Storage backends<a href="#storage-backends" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>State is accessed through <code>IWorldStore</code> (<code>src/interfaces/world-store.interface.ts</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Backend</th>
+<th>Used by</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FileWorldStore</code></td>
+<td>stdio (<code>npm start</code>)</td>
+<td>Atomic per-dimension JSON files under <code>MCP_WORLD_DIR</code></td>
+</tr>
+<tr>
+<td><code>MemoryWorldStore</code></td>
+<td>tests, <code>memory</code></td>
+<td>Volatile; useful for throwaway sessions</td>
+</tr>
+</tbody>
+</table>
+<h2 id="resources" class="tsd-anchor-link">Resources<a href="#resources" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<table>
+<thead>
+<tr>
+<th>URI</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lzimul://minecraft/blocks</code></td>
+<td>Block index</td>
+</tr>
+<tr>
+<td><code>lzimul://minecraft/blocks/{name}</code></td>
+<td>Single block properties</td>
+</tr>
+<tr>
+<td><code>lzimul://minecraft/items</code></td>
+<td>Item index</td>
+</tr>
+<tr>
+<td><code>lzimul://minecraft/items/{name}</code></td>
+<td>Single item properties</td>
+</tr>
+<tr>
+<td><code>lzimul://minecraft/entities</code></td>
+<td>Entity type index (157 types, including <code>player</code>)</td>
+</tr>
+<tr>
+<td><code>lzimul://minecraft/entities/{name}</code></td>
+<td>Single entity type properties</td>
+</tr>
+<tr>
+<td><code>lzimul://minecraft/dimensions</code></td>
+<td>Dimension index with block, entity and player counts</td>
+</tr>
+<tr>
+<td><code>lzimul://minecraft/dimensions/{type}</code></td>
+<td>Single dimension state including blocks and entities</td>
+</tr>
+</tbody>
+</table>
+<p>Placed blocks in the dimension resources include a <code>states</code> object. If a resource read fails, the server returns a JSON document with an <code>error</code> field instead of dropping the request. The dimensions index stays small on purpose: it reports per-dimension metadata, <code>modifiedBlockCount</code>, <code>entityCount</code> and <code>playerCount</code>, while <code>lzimul://minecraft/dimensions/{type}</code> returns the placed blocks plus the full entity/player list. In total the server registers 2,838 resources: every block, item and entity type, the indexes, and the seven dimension-related resources.</p>
+<h2 id="security" class="tsd-anchor-link">Security<a href="#security" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<ul>
+<li>Tool input is validated with Zod: coordinates are bounded, dimensions come from an enum, and ids are limited in length.</li>
+<li>Block and item ids are resolved against the generated registries; unknown blocks, items and entity types and unknown namespaces are rejected.</li>
+<li>State names and values are restricted to <code>[a-z0-9_]</code> / <code>[a-z0-9_.-]</code>, 64 characters each, and reserved keys (<code>__proto__</code>, <code>constructor</code>, <code>prototype</code>) are rejected to rule out prototype pollution.</li>
+<li>Inventory input is validated too: the section and slot must be in range, the item must exist, and the count must fit the item's stack size. <code>minecraft:air</code> or count <code>0</code> clears a slot.</li>
+<li>Each dimension holds at most 250,000 modified blocks and 10,000 entities/players. Entity names are capped at 64 characters, player names at 32 characters, and player names are case-insensitively unique across all dimensions. The file store refuses to load or write a snapshot over 128 MiB, so an oversized world fails the tool call instead of producing a file that would be quarantined on restart.</li>
+<li>Snapshot writes are atomic, corrupt files are quarantined with a UUID suffix, and malformed block or entity entries are skipped while the rest of the world loads. Entity dimensions are taken from the snapshot file rather than trusted from the entry.</li>
+<li>Run <code>npm audit</code> after dependency changes. The dependency tree currently reports no vulnerabilities; the <code>katex</code> override keeps the markdown lint toolchain patched.</li>
+</ul>
+<h2 id="performance" class="tsd-anchor-link">Performance<a href="#performance" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p>Measured on Node.js 26 (results vary by hardware):</p>
+<ul>
+<li>Startup, including registry import and 2,838 resource registrations: about 0.4 s.</li>
+<li>300 concurrent <code>setBlock</code> tool calls: about 70 ms end-to-end, because parallel flushes share in-flight snapshot writes instead of writing the file 300 times.</li>
+<li>20,000 persisted blocks: about 1.1 MiB of compact JSON, ~25 ms to save and ~24 ms to load.</li>
+<li>In-memory block, entity and inventory reads/writes are O(1) map operations; only the debounced snapshot write is proportional to the number of modified blocks and entities.</li>
+<li><code>getDimensionBlocks</code> pages a cached, coordinate-sorted block array instead of re-sorting the world on every call.</li>
+</ul>
+<h2 id="project-structure" class="tsd-anchor-link">Project Structure<a href="#project-structure" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<pre><code class="text">src/
+  index.ts        Entry point
+  app/            Server assembly
+  config/         Server metadata, dimensions, storage, world limits
+  data/           Generated registry data (blocks, items, entities, version)
+  enums/          Enumerations (EBoundingBox, EIconTheme, EDimensionType, EEntityKind, EInventorySection, EMoveDirection)
+  interfaces/     Interfaces (IBlock, IItem, IEntityType, IEntity, IEntityInventory, IDimension, IPlacedBlock, IWorldSnapshot, IWorldStore)
+  resources/      Block, item, entity and dimension resource registration
+  schemas/        Zod schemas and converters (blocks, entities, inventories)
+  tools/          Block, dimension, entity, player and inventory tools
+  utils/          Shared helpers (error messages, log4js + chalk logger)
+  world/          Simulated dimension state, entity inventory and item specs
+    stores/       IWorldStore implementations (file, memory) and serializers
+scripts/
+  logger.mjs               Coloured stdout logger for developer scripts
+  generate-data.mjs        Regenerates src/data from minecraft-data
+  smoke-test.mjs           End-to-end smoke test (blocks, dimensions, entities, inventories)
+  persistence-test.mjs     Restart test for blocks, entities and inventories
+  error-test.mjs           Error fallbacks, sanitizing and storage limit tests
+  stress-test.mjs          Parallel write, coalescing and restart stress test
+  clean.mjs                Removes build output
+</code><button type="button">Copy</button></pre>
+
+<h2 id="scripts" class="tsd-anchor-link">Scripts<a href="#scripts" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>npm run build</code></td>
+<td>Lint, compile and generate docs</td>
+</tr>
+<tr>
+<td><code>npm run dev</code></td>
+<td>Build then start the server</td>
+</tr>
+<tr>
+<td><code>npm start</code></td>
+<td>Start the server (stdio)</td>
+</tr>
+<tr>
+<td><code>npm test</code></td>
+<td>Run the smoke, persistence, security and stress tests</td>
+</tr>
+<tr>
+<td><code>npm run test:stress</code></td>
+<td>Run only the parallel write stress test</td>
+</tr>
+<tr>
+<td><code>npm run generate-data</code></td>
+<td>Regenerate registry data (see below)</td>
+</tr>
+<tr>
+<td><code>npm run clean</code></td>
+<td>Remove build output</td>
+</tr>
+<tr>
+<td><code>npm run lint</code></td>
+<td>Lint without modifying files</td>
+</tr>
+<tr>
+<td><code>npm run lint:fix</code></td>
+<td>Lint and auto-fix</td>
+</tr>
+</tbody>
+</table>
+<h2 id="data" class="tsd-anchor-link">Data<a href="#data" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p>Registry data is generated from <a href="https://github.com/PrismarineJS/minecraft-data">PrismarineJS/minecraft-data</a>. To regenerate for a specific version:</p>
+<pre><code class="bash"><span class="hl-4">node</span><span class="hl-0"> </span><span class="hl-2">scripts/generate-data.mjs</span><span class="hl-0"> &lt;</span><span class="hl-2">versio</span><span class="hl-0">n&gt; [blocks.json] [items.json] [entities.json]</span>
+</code><button type="button">Copy</button></pre>
+
+<p>When local JSON files are provided they are used directly, otherwise the data is fetched from GitHub. The fourth argument is optional and only needed for a custom entity registry; without it the entity list is fetched from the same minecraft-data release. The data version is exported as <code>MINECRAFT_DATA_VERSION</code> and used in all descriptions.</p>
+<h2 id="license" class="tsd-anchor-link">License<a href="#license" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
+<p>MIT</p>
+</div></div>
+<div class="col-sidebar">
+<div class="page-menu">
+<div class="tsd-navigation settings">
+<details class="tsd-accordion"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>Settings</h3></summary>
+<div class="tsd-accordion-details">
+<div class="tsd-filter-visibility"><span class="settings-label">Member Visibility</span>
+<ul id="tsd-filter-options">
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-protected" name="protected"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Protected</span></label></li>
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-inherited" name="inherited" checked/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>Inherited</span></label></li>
+<li class="tsd-filter-item"><label class="tsd-filter-input"><input type="checkbox" id="tsd-filter-external" name="external"/><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect class="tsd-checkbox-background" width="30" height="30" x="1" y="1" rx="6" fill="none"></rect><path class="tsd-checkbox-checkmark" d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25" stroke="none" stroke-width="3.5" stroke-linejoin="round" fill="none"></path></svg><span>External</span></label></li></ul></div>
+<div class="tsd-theme-toggle"><label class="settings-label" for="tsd-theme">Theme</label><select id="tsd-theme"><option value="os">OS</option><option value="light">Light</option><option value="dark">Dark</option></select></div></div></details></div>
+<details open class="tsd-accordion tsd-page-navigation"><summary class="tsd-accordion-summary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><use href="assets/icons.svg#icon-chevronDown"></use></svg>
+<h3>On This Page</h3></summary>
+<div class="tsd-accordion-details"><a href="#lzimul-minecraft-mcp"><span>l<wbr/>Zi<wbr/>M<wbr/>Ul <wbr/>Minecraft <wbr/>MCP</span></a>
+<ul>
+<li><a href="#features"><span>Features</span></a></li>
+<li><a href="#protocol"><span>Protocol</span></a></li>
+<li><a href="#tools"><span>Tools</span></a></li>
+<li>
+<ul>
+<li><a href="#entities-players-and-inventories"><span>Entities, players and inventories</span></a></li></ul></li>
+<li><a href="#persistence"><span>Persistence</span></a></li>
+<li>
+<ul>
+<li><a href="#configuration"><span>Configuration</span></a></li>
+<li><a href="#logging"><span>Logging</span></a></li>
+<li><a href="#storage-backends"><span>Storage backends</span></a></li></ul></li>
+<li><a href="#resources"><span>Resources</span></a></li>
+<li><a href="#security"><span>Security</span></a></li>
+<li><a href="#performance"><span>Performance</span></a></li>
+<li><a href="#project-structure"><span>Project <wbr/>Structure</span></a></li>
+<li><a href="#scripts"><span>Scripts</span></a></li>
+<li><a href="#data"><span>Data</span></a></li>
+<li><a href="#license"><span>License</span></a></li></ul></div></details></div>
+<div class="site-menu">
+<nav class="tsd-navigation"><a href="modules.html">lZiMUl Minecraft MCP</a>
+<ul class="tsd-small-nested-navigation" id="tsd-nav-container">
+<li>Loading...</li></ul></nav></div></div></div><footer>
+<p class="tsd-generator">Generated using <a href="https://typedoc.org/" target="_blank">TypeDoc</a></p></footer>
+<div class="overlay"></div></body></html>
