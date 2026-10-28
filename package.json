@@ -39,7 +39,7 @@
     "start": "node .",
     "lint": "npx eslint .",
     "lint:fix": "npx eslint . --fix",
-    "build": "npm run lint && npx tsc -p ./tsconfig.json && npm run typedoc",
+    "build": "npm run lint:fix && npx tsc -p ./tsconfig.json && npm run typedoc",
     "typedoc": "npx typedoc --options ./typedoc.json",
     "dev": "npm run build && npm run start",
     "generate-data": "node ./scripts/generate-data.mjs",
