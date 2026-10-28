@@ -1,11 +1,33 @@
 import type { McpServer } from '@modelcontextprotocol/server';
 
 import { toBlockInfo } from '../schemas/block-schema.js';
+import { toEntityInfo } from '../schemas/entity-schema.js';
+import { World } from '../world/world.js';
 import { errorResource } from './error-content.js';
 
 import type { IDimension } from '../interfaces/dimension.interface.js';
-import { World } from '../world/world.js';
 
+/** Compact dimension row used by the dimensions index. */
+function dimensionSummary(
+  world: World,
+  dimension: IDimension
+): Record<string, unknown> {
+  const simulated = world.getDimension(dimension.type);
+  return {
+    key: dimension.key,
+    type: dimension.type,
+    displayName: dimension.displayName,
+    minY: dimension.minY,
+    maxY: dimension.maxY,
+    hasSkylight: dimension.hasSkylight,
+    modifiedBlockCount: simulated.modifiedBlockCount,
+    entityCount: simulated.entityCount,
+    playerCount: simulated.playerCount,
+    uri: `lzimul://minecraft/dimensions/${dimension.type}`
+  };
+}
+
+/** Full dimension state, including placed blocks and every entity/player. */
 function dimensionState(
   world: World,
   dimension: IDimension
@@ -19,18 +41,20 @@ function dimensionState(
     maxY: dimension.maxY,
     hasSkylight: dimension.hasSkylight,
     modifiedBlockCount: simulated.modifiedBlockCount,
-    placedBlocks: simulated.placedBlocks
-      .map(placed => ({
-        x: placed.x,
-        y: placed.y,
-        z: placed.z,
-        block: toBlockInfo(placed.block),
-        states: placed.states
-      }))
-      .toSorted((a, b) => a.x - b.x || a.y - b.y || a.z - b.z)
+    entityCount: simulated.entityCount,
+    playerCount: simulated.playerCount,
+    placedBlocks: simulated.sortedPlacedBlocks.map(placed => ({
+      x: placed.x,
+      y: placed.y,
+      z: placed.z,
+      block: toBlockInfo(placed.block),
+      states: placed.states
+    })),
+    entities: simulated.sortedPlacedEntities.map(toEntityInfo)
   };
 }
 
+/** Register `lzimul://minecraft/dimensions`, which stays small on purpose. */
 export function registerDimensionIndexResource(
   server: McpServer,
   world: World
@@ -40,7 +64,8 @@ export function registerDimensionIndexResource(
     'lzimul://minecraft/dimensions',
     {
       title: 'Minecraft Dimension List',
-      description: 'Index of the persisted Minecraft dimensions',
+      description:
+        'Index of the persisted Minecraft dimensions with their block counts (read the per-dimension resource for placed blocks)',
       mimeType: 'application/json'
     },
     async uri => {
@@ -52,7 +77,7 @@ export function registerDimensionIndexResource(
               mimeType: 'application/json',
               text: JSON.stringify(
                 World.listDimensions().map(dimension =>
-                  dimensionState(world, dimension)
+                  dimensionSummary(world, dimension)
                 ),
                 null,
                 2
@@ -67,6 +92,7 @@ export function registerDimensionIndexResource(
   );
 }
 
+/** Register one live state resource per dimension. */
 export function registerDimensionResources(
   server: McpServer,
   world: World

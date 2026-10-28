@@ -4,29 +4,42 @@ import path from 'node:path';
 
 import { WORLD_LIMITS } from '../../config/world-limits.js';
 import { toErrorMessage } from '../../utils/error-message.js';
-import { fromSerialized, toSerialized } from './serialized-block.js';
+import { logger } from '../../utils/logger.js';
+import { fromSerialized } from './serialized-block.js';
+import { fromSerializedEntity } from './serialized-entity.js';
+import {
+  MAX_SNAPSHOT_BYTES,
+  serializeSnapshot
+} from './serialized-snapshot.js';
 
 import type { EDimensionType } from '../../enums/dimension-type.enum.js';
+import type { IEntity } from '../../interfaces/entity.interface.js';
 import type { IPlacedBlock } from '../../interfaces/placed-block.interface.js';
-import type { IWorldStore } from '../../interfaces/world-store.interface.js';
-import type { ISerializedBlock } from './serialized-block.js';
-
-const FILE_FORMAT = 'lzimul-world/2';
-/** Refuse to parse a snapshot larger than this, so a corrupt file cannot OOM. */
-const MAX_SNAPSHOT_BYTES = 128 * 1024 * 1024;
+import type {
+  IWorldSnapshot,
+  IWorldStore
+} from '../../interfaces/world-store.interface.js';
 
 interface IStoredWorld {
-  readonly format: string;
-  readonly dimension: string;
-  readonly updatedAt: string;
-  readonly modifiedBlockCount: number;
-  readonly blocks: readonly ISerializedBlock[];
+  readonly blocks?: unknown;
+  readonly entities?: unknown;
 }
 
 function warn(message: string): void {
-  console.error(`[lzimul-minecraft-mcp] ${message}`);
+  logger.warn(message);
 }
 
+function emptySnapshot(): IWorldSnapshot {
+  return { blocks: [], entities: [] };
+}
+
+/**
+ * Persist one JSON document per dimension.
+ *
+ * Reads tolerate older snapshot formats and quarantine unusable files. Writes
+ * are atomic (temporary file + rename) and bounded by the same size limit used
+ * when loading, so a successful write can always be read back.
+ */
 export class FileWorldStore implements IWorldStore {
   private readonly directory: string;
   private directoryReady = false;
@@ -35,6 +48,7 @@ export class FileWorldStore implements IWorldStore {
     this.directory = directory;
   }
 
+  /** Create the snapshot directory once, lazily. */
   private async ensureDirectory(): Promise<void> {
     if (!this.directoryReady) {
       await mkdir(this.directory, { recursive: true });
@@ -42,11 +56,13 @@ export class FileWorldStore implements IWorldStore {
     }
   }
 
+  /** Map a dimension enum to its dedicated snapshot file. */
   private fileFor(type: EDimensionType): string {
     return path.join(this.directory, `${type}.json`);
   }
 
-  async load(type: EDimensionType): Promise<readonly IPlacedBlock[]> {
+  /** Load and validate one dimension snapshot. */
+  async load(type: EDimensionType): Promise<IWorldSnapshot> {
     const file = this.fileFor(type);
 
     let raw: string;
@@ -57,12 +73,12 @@ export class FileWorldStore implements IWorldStore {
           file,
           `snapshot is larger than ${MAX_SNAPSHOT_BYTES} bytes`
         );
-        return [];
+        return emptySnapshot();
       }
       raw = await readFile(file, 'utf8');
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        return [];
+        return emptySnapshot();
       }
       throw new Error(
         `Cannot read world snapshot ${file}: ${toErrorMessage(error)}`,
@@ -70,70 +86,129 @@ export class FileWorldStore implements IWorldStore {
       );
     }
 
-    let parsed: IStoredWorld;
+    let parsed: unknown;
     try {
-      parsed = JSON.parse(raw) as IStoredWorld;
+      parsed = JSON.parse(raw);
     } catch {
       await this.quarantine(file, 'invalid JSON');
-      return [];
+      return emptySnapshot();
     }
 
-    if (!parsed || !Array.isArray(parsed.blocks)) {
+    if (
+      !parsed ||
+      typeof parsed !== 'object' ||
+      Array.isArray(parsed) ||
+      !Array.isArray((parsed as IStoredWorld).blocks)
+    ) {
       await this.quarantine(file, 'missing blocks array');
-      return [];
+      return emptySnapshot();
     }
 
-    if (parsed.blocks.length > WORLD_LIMITS.maxModifiedBlocks) {
+    const stored = parsed as { blocks: readonly unknown[]; entities?: unknown };
+    if (stored.blocks.length > WORLD_LIMITS.maxModifiedBlocks) {
       await this.quarantine(
         file,
-        `${parsed.blocks.length} blocks exceed the limit of ${WORLD_LIMITS.maxModifiedBlocks}`
+        `${stored.blocks.length} blocks exceed the limit of ${WORLD_LIMITS.maxModifiedBlocks}`
       );
-      return [];
+      return emptySnapshot();
     }
 
-    return parsed.blocks.flatMap(entry => {
+    let serializedEntities: readonly unknown[] = [];
+    if (typeof stored.entities !== 'undefined') {
+      if (!Array.isArray(stored.entities)) {
+        await this.quarantine(file, 'invalid entities array');
+        return emptySnapshot();
+      }
+      if (stored.entities.length > WORLD_LIMITS.maxEntitiesPerDimension) {
+        await this.quarantine(
+          file,
+          `${stored.entities.length} entities exceed the limit of ${WORLD_LIMITS.maxEntitiesPerDimension}`
+        );
+        return emptySnapshot();
+      }
+      serializedEntities = stored.entities;
+    }
+
+    const blocks: IPlacedBlock[] = [];
+    for (const entry of stored.blocks) {
       const block = fromSerialized(entry);
       if (block) {
-        return [block];
+        blocks.push(block);
+      } else {
+        warn(`Skipped malformed block entry in ${file}`);
       }
-      warn(`Skipped malformed block entry in ${file}`);
-      return [];
-    });
+    }
+
+    const entities: IEntity[] = [];
+    for (const entry of serializedEntities) {
+      try {
+        const entity = fromSerializedEntity(entry, type);
+        if (entity) {
+          entities.push(entity);
+          continue;
+        }
+      } catch {
+        // Treat converter failures like any other malformed entry.
+      }
+      warn(`Skipped malformed entity entry in ${file}`);
+    }
+
+    return { blocks, entities };
   }
 
-  async save(
-    type: EDimensionType,
-    blocks: readonly IPlacedBlock[]
-  ): Promise<void> {
-    if (blocks.length > WORLD_LIMITS.maxModifiedBlocks) {
+  /** Return the raw snapshot file, or an empty snapshot when none exists. */
+  async readRaw(type: EDimensionType): Promise<string> {
+    const file = this.fileFor(type);
+    try {
+      const info = await stat(file);
+      if (info.size > MAX_SNAPSHOT_BYTES) {
+        throw new RangeError(
+          `World snapshot ${file} is larger than ${MAX_SNAPSHOT_BYTES} bytes`
+        );
+      }
+      return await readFile(file, 'utf8');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return serializeSnapshot(type, emptySnapshot());
+      }
+      if (error instanceof RangeError) {
+        throw error;
+      }
+      throw new Error(
+        `Cannot read world snapshot ${file}: ${toErrorMessage(error)}`,
+        { cause: error }
+      );
+    }
+  }
+
+  /** Validate, sort and atomically replace one dimension snapshot. */
+  async save(type: EDimensionType, snapshot: IWorldSnapshot): Promise<void> {
+    if (snapshot.blocks.length > WORLD_LIMITS.maxModifiedBlocks) {
       throw new RangeError(
-        `World snapshot has ${blocks.length} blocks, above the limit of ${WORLD_LIMITS.maxModifiedBlocks}`
+        `World snapshot has ${snapshot.blocks.length} blocks, above the limit of ${WORLD_LIMITS.maxModifiedBlocks}`
+      );
+    }
+    if (snapshot.entities.length > WORLD_LIMITS.maxEntitiesPerDimension) {
+      throw new RangeError(
+        `World snapshot has ${snapshot.entities.length} entities, above the limit of ${WORLD_LIMITS.maxEntitiesPerDimension}`
       );
     }
 
     const file = this.fileFor(type);
+    const text = serializeSnapshot(type, snapshot);
+    const bytes = Buffer.byteLength(text, 'utf8');
+    if (bytes > MAX_SNAPSHOT_BYTES) {
+      throw new RangeError(
+        `World snapshot for ${type} would be ${bytes} bytes, above the load limit of ${MAX_SNAPSHOT_BYTES} bytes. Remove blocks, block states or entities and retry.`
+      );
+    }
+
     try {
       await this.ensureDirectory();
-
-      const sorted = blocks.toSorted(
-        (a, b) => a.x - b.x || a.y - b.y || a.z - b.z
-      );
-      const payload: IStoredWorld = {
-        format: FILE_FORMAT,
-        dimension: `minecraft:${type}`,
-        updatedAt: new Date().toISOString(),
-        modifiedBlockCount: sorted.length,
-        blocks: sorted.map(toSerialized)
-      };
-
-      // Write to a temporary file first so a crash mid-write cannot truncate the
-      // previous snapshot, then rename atomically over the live file. Compact
-      // JSON halves the bytes compared to pretty-printing.
       const temporary = `${file}.tmp`;
-      await writeFile(temporary, `${JSON.stringify(payload)}\n`, 'utf8');
+      await writeFile(temporary, text, 'utf8');
       await rename(temporary, file);
     } catch (error) {
-      // The directory may have been removed after the first successful save.
       this.directoryReady = false;
       throw new Error(
         `Failed to write world snapshot ${file}: ${toErrorMessage(error)}`,
@@ -142,6 +217,7 @@ export class FileWorldStore implements IWorldStore {
     }
   }
 
+  /** Move an unreadable or oversized file aside so startup can continue. */
   private async quarantine(file: string, reason: string): Promise<void> {
     const backup = `${file}.corrupt-${randomUUID()}`;
     try {

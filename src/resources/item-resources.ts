@@ -7,6 +7,7 @@ import {
   registerDataIndexResource
 } from './data-resources.js';
 
+/** Register the item index and one resource per item. */
 export function registerItemResources(server: McpServer): void {
   registerDataIndexResource(server, {
     name: 'minecraft/items',

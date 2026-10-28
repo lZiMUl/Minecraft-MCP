@@ -1,30 +1,46 @@
 import { WORLD_LIMITS } from '../../config/world-limits.js';
+import { serializeSnapshot } from './serialized-snapshot.js';
 
 import type { EDimensionType } from '../../enums/dimension-type.enum.js';
-import type { IPlacedBlock } from '../../interfaces/placed-block.interface.js';
-import type { IWorldStore } from '../../interfaces/world-store.interface.js';
+import type {
+  IWorldSnapshot,
+  IWorldStore
+} from '../../interfaces/world-store.interface.js';
 
-/**
- * Volatile store used for tests and for `MCP_WORLD_STORAGE=memory`.
- * It keeps the previous behaviour (state only lives as long as the process).
- */
+/** Volatile store used by tests and by `MCP_WORLD_STORAGE=memory`. */
 export class MemoryWorldStore implements IWorldStore {
-  private readonly worlds = new Map<EDimensionType, readonly IPlacedBlock[]>();
+  private readonly worlds = new Map<EDimensionType, IWorldSnapshot>();
 
-  async load(type: EDimensionType): Promise<readonly IPlacedBlock[]> {
+  /** Return a shallow copy so callers cannot mutate the stored snapshot. */
+  async load(type: EDimensionType): Promise<IWorldSnapshot> {
     const stored = this.worlds.get(type);
-    return stored ? [...stored] : [];
+    return stored
+      ? { blocks: [...stored.blocks], entities: [...stored.entities] }
+      : { blocks: [], entities: [] };
   }
 
-  async save(
-    type: EDimensionType,
-    blocks: readonly IPlacedBlock[]
-  ): Promise<void> {
-    if (blocks.length > WORLD_LIMITS.maxModifiedBlocks) {
+  /** Store a copy after checking the same limits as the file backend. */
+  async save(type: EDimensionType, snapshot: IWorldSnapshot): Promise<void> {
+    if (snapshot.blocks.length > WORLD_LIMITS.maxModifiedBlocks) {
       throw new RangeError(
-        `World snapshot has ${blocks.length} blocks, above the limit of ${WORLD_LIMITS.maxModifiedBlocks}`
+        `World snapshot has ${snapshot.blocks.length} blocks, above the limit of ${WORLD_LIMITS.maxModifiedBlocks}`
       );
     }
-    this.worlds.set(type, [...blocks]);
+    if (snapshot.entities.length > WORLD_LIMITS.maxEntitiesPerDimension) {
+      throw new RangeError(
+        `World snapshot has ${snapshot.entities.length} entities, above the limit of ${WORLD_LIMITS.maxEntitiesPerDimension}`
+      );
+    }
+
+    this.worlds.set(type, {
+      blocks: [...snapshot.blocks],
+      entities: [...snapshot.entities]
+    });
+  }
+
+  /** Serialize the in-memory snapshot in the same format as the file store. */
+  async readRaw(type: EDimensionType): Promise<string> {
+    const stored = this.worlds.get(type);
+    return serializeSnapshot(type, stored ?? { blocks: [], entities: [] });
   }
 }

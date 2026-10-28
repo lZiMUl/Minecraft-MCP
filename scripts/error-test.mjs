@@ -1,3 +1,9 @@
+/**
+ * Error and storage-hardening tests.
+ *
+ * Covers error message fallbacks, state sanitizing, snapshot format/limits,
+ * corrupt-file quarantine and flush retry behavior.
+ */
 import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -66,19 +72,23 @@ async function testFileStore() {
   const store = new FileWorldStore(directory);
   const stairs = getBlockByName("oak_stairs");
 
-  await store.save("overworld", [
-    {
-      x: 0,
-      y: 64,
-      z: 0,
-      block: stairs,
-      states: { facing: "east", half: "top" },
-    },
-  ]);
+  await store.save("overworld", {
+    blocks: [
+      {
+        x: 0,
+        y: 64,
+        z: 0,
+        block: stairs,
+        states: { facing: "east", half: "top" },
+      },
+    ],
+    entities: [],
+  });
   const loaded = await store.load("overworld");
   check(
     "file store round-trips states",
-    loaded[0]?.states?.facing === "east" && loaded[0]?.states?.half === "top",
+    loaded.blocks[0]?.states?.facing === "east" &&
+      loaded.blocks[0]?.states?.half === "top",
   );
 
   const raw = JSON.parse(
@@ -86,14 +96,18 @@ async function testFileStore() {
   );
   check(
     "snapshots use the current format",
-    raw.format === "lzimul-world/2" &&
+    raw.format === "lzimul:minecraft/dimension" &&
       raw.blocks.length === 1 &&
-      raw.blocks[0].states.facing === "east",
+      raw.blocks[0].states.facing === "east" &&
+      raw.entityCount === 0,
   );
 
   let tooLarge = false;
   try {
-    await store.save("overworld", new Array(250_001));
+    await store.save("overworld", {
+      blocks: new Array(250_001),
+      entities: [],
+    });
   } catch (error) {
     tooLarge = error instanceof RangeError;
   }
@@ -104,7 +118,8 @@ async function testFileStore() {
   const files = await readdir(directory);
   check(
     "corrupt snapshots are quarantined",
-    corrupt.length === 0 &&
+    corrupt.blocks.length === 0 &&
+      corrupt.entities.length === 0 &&
       files.some((file) => file.startsWith("the_nether.json.corrupt-")),
   );
 
@@ -116,11 +131,11 @@ async function testFlushCoalescing() {
   let persisted = [];
   const store = {
     async load() {
-      return [];
+      return { blocks: [], entities: [] };
     },
-    async save(_type, blocks) {
+    async save(_type, snapshot) {
       saves++;
-      persisted = blocks;
+      persisted = snapshot;
       await new Promise((resolve) => setTimeout(resolve, 2));
     },
   };
@@ -140,14 +155,14 @@ async function testFlushCoalescing() {
     saves <= 3,
     `${saves} saves for 100 blocks`,
   );
-  check("coalesced snapshot has every block", persisted.length === 100);
+  check("coalesced snapshot has every block", persisted.blocks.length === 100);
 }
 
 async function testFlushRetry() {
   let attempts = 0;
   const store = {
     async load() {
-      return [];
+      return { blocks: [], entities: [] };
     },
     async save() {
       attempts++;

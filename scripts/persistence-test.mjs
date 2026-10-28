@@ -1,3 +1,7 @@
+/**
+ * Restart test: writes blocks, a player and an inventory, stops the server,
+ * starts a new process against the same directory and reads the state back.
+ */
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
@@ -115,6 +119,27 @@ async function main() {
       Object.keys(setPlain?.result?.structuredContent?.states ?? {}).length ===
         0,
   );
+  const PLAYER_POS = { x: 323, y: 70, z: -654 };
+  const player = await first.call(13, "createPlayer", {
+    ...PLAYER_POS,
+    name: "PersistentPlayer",
+  });
+  check(
+    "phase 1 createPlayer",
+    player?.result?.structuredContent?.name === "PersistentPlayer",
+  );
+  const inventory = await first.call(14, "setInventory", {
+    target: "PersistentPlayer",
+    section: "inventory",
+    slot: 0,
+    item: "minecraft:stone",
+    count: 3,
+  });
+  check(
+    "phase 1 setInventory",
+    inventory?.result?.structuredContent?.inventory?.[0]?.item ===
+      "minecraft:stone",
+  );
   const read = await first.call(11, "getBlock", POS);
   check(
     "phase 1 readback",
@@ -129,9 +154,22 @@ async function main() {
   check(
     "one snapshot file per dimension",
     snapshot.dimension === "minecraft:overworld" &&
-      snapshot.format === "lzimul-world/2" &&
-      snapshot.blocks.length === 2,
-    `${snapshot.dimension} / ${snapshot.blocks?.length} blocks`,
+      snapshot.format === "lzimul:minecraft/dimension" &&
+      snapshot.blocks.length === 2 &&
+      snapshot.entityCount === 1,
+    `${snapshot.dimension} / ${snapshot.blocks?.length} blocks / ${snapshot.entityCount} entities`,
+  );
+  check(
+    "snapshot stores entities",
+    snapshot.entities?.length === 1 &&
+      snapshot.entities[0]?.name === "PersistentPlayer" &&
+      snapshot.entities[0]?.type === "minecraft:player",
+  );
+  check(
+    "snapshot stores entity inventory",
+    snapshot.entities[0]?.inventory?.inventory?.[0]?.item ===
+      "minecraft:stone" &&
+      snapshot.entities[0]?.inventory?.inventory?.[0]?.count === 3,
   );
   check("snapshot stores the block id", snapshot.blocks[0]?.block === BLOCK);
   check(
@@ -161,6 +199,23 @@ async function main() {
     "stateless block survives a restart",
     plainAfter?.result?.structuredContent?.block?.key ===
       "minecraft:lapis_block",
+  );
+  const playerAfter = await second.call(24, "getPlayer", {
+    name: "persistentplayer",
+  });
+  check(
+    "player survives a restart",
+    playerAfter?.result?.structuredContent?.name === "PersistentPlayer" &&
+      playerAfter?.result?.structuredContent?.dimension === "overworld",
+    playerAfter?.result?.content?.[0]?.text,
+  );
+  const inventoryAfter = await second.call(25, "getInventory", {
+    target: "PersistentPlayer",
+  });
+  check(
+    "entity inventory survives a restart",
+    inventoryAfter?.result?.structuredContent?.inventory?.[0]?.item ===
+      "minecraft:stone",
   );
   const nether = await second.call(21, "getBlock", {
     ...POS,

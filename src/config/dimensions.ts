@@ -2,6 +2,7 @@ import { EDimensionType } from '../enums/dimension-type.enum.js';
 
 import type { IDimension } from '../interfaces/dimension.interface.js';
 
+/** Static definitions for the three simulated dimensions. */
 export const DIMENSIONS: readonly IDimension[] = [
   {
     key: 'minecraft:overworld',
