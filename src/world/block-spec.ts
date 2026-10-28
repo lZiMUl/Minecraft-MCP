@@ -8,12 +8,16 @@ import {
 import type { IBlock } from '../interfaces/block.interface.js';
 import type { BlockStates } from '../interfaces/block-states.interface.js';
 
+/** Result of resolving a block id and its optional state list. */
 export type BlockSpecResult =
   | { readonly ok: true; readonly block: IBlock; readonly states: BlockStates }
   | { readonly ok: false; readonly error: string };
 
+/** Full block spec: optional namespace, block name and optional `[states]`. */
 const SPEC = /^(?:([a-z0-9_.-]+):)?([a-z0-9_./-]+)(?:\[([^\]]*)\])?$/;
+/** One `property=value` pair inside the brackets. */
 const PROPERTY = /^([a-z0-9_]+)=([a-z0-9_.-]+)$/;
+/** Upper bound keeps a crafted request from creating an oversized state map. */
 const MAX_STATES = 32;
 
 /**
@@ -46,6 +50,7 @@ export function parseBlockSpec(input: string): BlockSpecResult {
   }
 
   const states: Record<string, string> = {};
+  let stateCount = 0;
   if (typeof rawStates === 'string') {
     if (rawStates.trim().length === 0) {
       return {
@@ -82,12 +87,13 @@ export function parseBlockSpec(input: string): BlockSpecResult {
         };
       }
       states[propertyName] = propertyValue;
-    }
-    if (Object.keys(states).length > MAX_STATES) {
-      return {
-        ok: false,
-        error: `Too many block states in "${input}" (max ${MAX_STATES}).`
-      };
+      stateCount += 1;
+      if (stateCount > MAX_STATES) {
+        return {
+          ok: false,
+          error: `Too many block states in "${input}" (max ${MAX_STATES}).`
+        };
+      }
     }
   }
 

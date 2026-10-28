@@ -1,12 +1,11 @@
 {
-  "entryPoints": [
-    "./src/**/*.ts"
-  ],
+  "entryPoints": ["./src/**/*.ts"],
   "out": "./docs/",
   "readme": "README.md",
   "name": "lZiMUl Minecraft MCP",
   "tsconfig": "./tsconfig.json",
   "excludePrivate": true,
   "excludeInternal": true,
-  "categorizeByGroup": true
+  "categorizeByGroup": true,
+  "gitRemote": "Minecraft-MCP"
 }

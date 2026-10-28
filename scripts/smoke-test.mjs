@@ -1,3 +1,9 @@
+/**
+ * End-to-end smoke test.
+ *
+ * Starts the real stdio server against a temporary world directory and covers
+ * tools, resources, block states, dimensions, entities and inventories.
+ */
 import { spawn } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -5,6 +11,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { MINECRAFT_BLOCK_COUNT } from "../build/data/blocks.js";
+import { MINECRAFT_ENTITY_COUNT } from "../build/data/entities.js";
 import { MINECRAFT_ITEM_COUNT } from "../build/data/items.js";
 import { MINECRAFT_DATA_VERSION } from "../build/data/version.js";
 import {
@@ -14,7 +21,8 @@ import {
 } from "./protocol.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const EXPECTED_RESOURCES = MINECRAFT_BLOCK_COUNT + MINECRAFT_ITEM_COUNT + 6;
+const EXPECTED_RESOURCES =
+  MINECRAFT_BLOCK_COUNT + MINECRAFT_ITEM_COUNT + MINECRAFT_ENTITY_COUNT + 7;
 const dataDir = await mkdtemp(path.join(tmpdir(), "lzimul-smoke-"));
 const proc = spawn("node", ["build/index.js"], {
   cwd: root,
@@ -89,11 +97,11 @@ async function main() {
     results[1]?.result?.resultType,
   );
   check("server title", serverInfo?.title === "lZiMUl Minecraft MCP");
-  check("server version", serverInfo?.version === "1.0.4", serverInfo?.version);
+  check("server version", serverInfo?.version === "1.0.5", serverInfo?.version);
   check(
     "description mentions data version and counts",
     serverInfo?.description?.includes(
-      `${MINECRAFT_BLOCK_COUNT} blocks and ${MINECRAFT_ITEM_COUNT} items`,
+      `${MINECRAFT_BLOCK_COUNT} blocks, ${MINECRAFT_ITEM_COUNT} items and ${MINECRAFT_ENTITY_COUNT} entity types`,
     ) &&
       serverInfo?.description?.includes(
         `Java Edition ${MINECRAFT_DATA_VERSION}`,
@@ -120,7 +128,7 @@ async function main() {
     resources.length === EXPECTED_RESOURCES,
     `got ${resources.length}, expected ${EXPECTED_RESOURCES}`,
   );
-  check("tool count 3", (results[3]?.result?.tools ?? []).length === 3);
+  check("tool count 21", (results[3]?.result?.tools ?? []).length === 21);
 
   call(10, "getItem", { item: "diamond_sword" });
   call(11, "getItem", { item: "not_an_item" });
@@ -245,6 +253,252 @@ async function main() {
   check(
     "item ids are normalized",
     results[263]?.result?.structuredContent?.item?.name === "diamond_sword",
+  );
+
+  call(270, "createPlayer", {
+    name: "SmokePlayer",
+    x: 0,
+    y: 64,
+    z: 0,
+  });
+  call(271, "setInventory", {
+    target: "smokeplayer",
+    section: "hotbar",
+    slot: 0,
+    item: "diamond_sword",
+    count: 1,
+  });
+  call(272, "getInventory", { target: "SmokePlayer" });
+  call(273, "createEntity", { type: "chicken", x: 1, y: 64, z: 0 });
+  call(274, "getDimension", { dimension: "overworld" });
+  call(275, "getDimensionBlocks", { dimension: "overworld", limit: 5 });
+  call(276, "getPlayer", { name: "SMOKEPLAYER" });
+  await waitFor(() => results[270] && results[276]);
+  call(277, "getEntity", {
+    id: results[270]?.result?.structuredContent?.id,
+  });
+  call(278, "getEntity", { id: "missing-entity" });
+  call(279, "getDimensionEntities", { dimension: "overworld" });
+  call(280, "getDimensionRawFile", { dimension: "overworld" });
+  call(281, "getEntityPosition", {
+    id: results[270]?.result?.structuredContent?.id,
+  });
+  call(282, "moveEntity", {
+    id: results[270]?.result?.structuredContent?.id,
+    direction: "forward",
+  });
+  call(283, "setEntityPosition", {
+    id: results[270]?.result?.structuredContent?.id,
+    position: { x: 4, y: 64, z: 1 },
+  });
+  call(284, "setInventory", {
+    target: "SmokePlayer",
+    section: "hotbar",
+    slot: 1,
+    item: "minecraft:apple",
+    count: 2,
+  });
+  call(285, "swapInventorySlots", {
+    target: "SmokePlayer",
+    fromSection: "hotbar",
+    fromSlot: 0,
+    toSection: "hotbar",
+    toSlot: 1,
+  });
+  call(286, "clearInventory", { target: "SmokePlayer" });
+  call(287, "getInventory", { target: "SmokePlayer" });
+  call(288, "deleteEntity", {
+    target: results[273]?.result?.structuredContent?.id,
+  });
+  call(289, "getDimensionEntities", { dimension: "overworld" });
+  call(290, "deleteEntity", { target: "SmokePlayer" });
+  call(291, "getDimensionEntities", { dimension: "overworld" });
+  await waitFor(
+    () =>
+      results[271] &&
+      results[272] &&
+      results[273] &&
+      results[274] &&
+      results[275] &&
+      results[277] &&
+      results[278] &&
+      results[279] &&
+      results[280] &&
+      results[281] &&
+      results[282] &&
+      results[283] &&
+      results[284] &&
+      results[285] &&
+      results[286] &&
+      results[287] &&
+      results[288] &&
+      results[289] &&
+      results[290] &&
+      results[291],
+  );
+
+  call(292, "fillBlocks", {
+    dimension: "overworld",
+    from: { x: 50, y: 64, z: 50 },
+    to: { x: 51, y: 64, z: 51 },
+    blockType: "stone",
+  });
+  await waitFor(() => results[292]);
+  call(293, "getBlocksInArea", {
+    dimension: "overworld",
+    from: { x: 50, y: 64, z: 50 },
+    to: { x: 51, y: 64, z: 51 },
+  });
+  await waitFor(() => results[293]);
+  call(294, "fillBlocks", {
+    dimension: "overworld",
+    from: { x: 50, y: 64, z: 50 },
+    to: { x: 51, y: 64, z: 51 },
+    blockType: "minecraft:air",
+    overwrite: true,
+  });
+  await waitFor(() => results[294]);
+  call(295, "getBlocksInArea", {
+    dimension: "overworld",
+    from: { x: 50, y: 64, z: 50 },
+    to: { x: 51, y: 64, z: 51 },
+  });
+  await waitFor(() => results[295]);
+
+  check(
+    "createPlayer succeeds",
+    results[270]?.result && !results[270].result.isError,
+  );
+  check(
+    "setInventory writes hotbar",
+    results[271]?.result?.structuredContent?.hotbar?.[0]?.item ===
+      "minecraft:diamond_sword",
+  );
+  check(
+    "getInventory reports used slot",
+    results[272]?.result?.structuredContent?.usedSlots === 1,
+  );
+  check(
+    "createEntity succeeds",
+    results[273]?.result?.structuredContent?.type === "minecraft:chicken",
+  );
+  check(
+    "getDimension counts entities and players",
+    results[274]?.result?.structuredContent?.entityCount === 2 &&
+      results[274]?.result?.structuredContent?.playerCount === 1,
+  );
+  check(
+    "getDimensionBlocks pages placed blocks",
+    results[275]?.result?.structuredContent?.total === 21 &&
+      results[275]?.result?.structuredContent?.returned === 5,
+  );
+  check(
+    "getPlayer is case-insensitive",
+    results[276]?.result?.structuredContent?.name === "SmokePlayer",
+  );
+  check(
+    "getEntity reads by UUID",
+    results[277]?.result?.structuredContent?.id ===
+      results[270]?.result?.structuredContent?.id,
+  );
+  check("getEntity unknown id isError", results[278]?.result?.isError === true);
+  check(
+    "getDimensionEntities lists entities and players",
+    results[279]?.result?.structuredContent?.entityCount === 2 &&
+      results[279]?.result?.structuredContent?.playerCount === 1,
+  );
+  check(
+    "getDimensionRawFile returns a usable snapshot",
+    (() => {
+      try {
+        const snapshot = JSON.parse(
+          results[280]?.result?.structuredContent?.raw ?? "{}",
+        );
+        return (
+          snapshot?.format === "lzimul:minecraft/dimension" &&
+          snapshot?.dimension === "minecraft:overworld" &&
+          snapshot?.blocks?.length === 21 &&
+          snapshot?.entities?.length === 2
+        );
+      } catch {
+        return false;
+      }
+    })(),
+  );
+  check(
+    "getEntityPosition returns the player position",
+    results[281]?.result?.structuredContent?.x === 0 &&
+      results[281]?.result?.structuredContent?.y === 64 &&
+      results[281]?.result?.structuredContent?.z === 0,
+  );
+  check(
+    "moveEntity moves the player forward one block",
+    results[282]?.result?.structuredContent?.direction === "forward" &&
+      results[282]?.result?.structuredContent?.z === 1,
+  );
+  check(
+    "setEntityPosition moves the player to exact coordinates",
+    results[283]?.result?.structuredContent?.x === 4 &&
+      results[283]?.result?.structuredContent?.y === 64 &&
+      results[283]?.result?.structuredContent?.z === 1,
+  );
+  check(
+    "swapInventorySlots swaps the hotbar stacks",
+    results[285]?.result?.structuredContent?.previousFrom?.item ===
+      "minecraft:diamond_sword" &&
+      results[285]?.result?.structuredContent?.previousTo?.item ===
+        "minecraft:apple" &&
+      results[285]?.result?.structuredContent?.hotbar?.[0]?.item ===
+        "minecraft:apple" &&
+      results[285]?.result?.structuredContent?.hotbar?.[1]?.item ===
+        "minecraft:diamond_sword",
+  );
+  check(
+    "clearInventory clears both stacks",
+    results[286]?.result?.structuredContent?.clearedSlots === 2 &&
+      results[286]?.result?.structuredContent?.usedSlots === 0,
+  );
+  check(
+    "getInventory confirms clearInventory",
+    results[287]?.result?.structuredContent?.usedSlots === 0,
+  );
+  check(
+    "deleteEntity deletes the chicken",
+    results[288]?.result?.structuredContent?.id ===
+      results[273]?.result?.structuredContent?.id &&
+      results[288]?.result?.structuredContent?.type === "minecraft:chicken",
+  );
+  check(
+    "getDimensionEntities reflects one deletion",
+    results[289]?.result?.structuredContent?.entityCount === 1 &&
+      results[289]?.result?.structuredContent?.playerCount === 1,
+  );
+  check(
+    "deleteEntity deletes the player by name",
+    results[290]?.result?.structuredContent?.name === "SmokePlayer",
+  );
+  check(
+    "getDimensionEntities is empty after deletes",
+    results[291]?.result?.structuredContent?.entityCount === 0 &&
+      results[291]?.result?.structuredContent?.playerCount === 0,
+  );
+  check(
+    "fillBlocks adds four blocks",
+    results[292]?.result?.structuredContent?.changed === 4 &&
+      results[292]?.result?.structuredContent?.modifiedBlockCount === 25,
+  );
+  check(
+    "getBlocksInArea sees the filled blocks",
+    results[293]?.result?.structuredContent?.total === 4,
+  );
+  check(
+    "fillBlocks clears the region with air",
+    results[294]?.result?.structuredContent?.removed === 4 &&
+      results[294]?.result?.structuredContent?.modifiedBlockCount === 21,
+  );
+  check(
+    "getBlocksInArea sees the cleared region",
+    results[295]?.result?.structuredContent?.total === 0,
   );
 
   send({

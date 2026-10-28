@@ -1,9 +1,11 @@
 import { DIMENSIONS } from '../config/dimensions.js';
 import { toErrorMessage } from '../utils/error-message.js';
+import { logger } from '../utils/logger.js';
 import { SimulatedDimension } from './simulated-dimension.js';
 
 import type { EDimensionType } from '../enums/dimension-type.enum.js';
 import type { IDimension } from '../interfaces/dimension.interface.js';
+import type { IEntity } from '../interfaces/entity.interface.js';
 import type { IWorldStore } from '../interfaces/world-store.interface.js';
 
 /**
@@ -41,13 +43,32 @@ export class World {
         return [dimension.type, simulated] as const;
       })
     );
-    return new World(new Map(entries));
+
+    const dimensions = new Map(entries);
+
+    // Player names are unique across the whole world, not per dimension. When
+    // old snapshots contain the same player name in two dimensions, keep the
+    // first one (dimension order is fixed) and drop the rest.
+    const claimedPlayerNames = new Set<string>();
+    let duplicatePlayers = 0;
+    for (const dimension of dimensions.values()) {
+      duplicatePlayers += dimension.removeDuplicatePlayers(claimedPlayerNames);
+    }
+    if (duplicatePlayers > 0) {
+      logger.warn(
+        `Removed ${duplicatePlayers} duplicate player name(s) while loading the world`
+      );
+    }
+
+    return new World(dimensions);
   }
 
+  /** Return the fixed dimension definitions in display order. */
   static listDimensions(): readonly IDimension[] {
     return DIMENSIONS;
   }
 
+  /** Resolve one simulated dimension or throw for an unknown enum value. */
   getDimension(type: EDimensionType): SimulatedDimension {
     const dimension = this.dimensions.get(type);
     if (!dimension) {
@@ -58,11 +79,37 @@ export class World {
     return dimension;
   }
 
+  /** Search every dimension for an entity or player UUID. */
+  findEntity(id: string): IEntity | undefined {
+    for (const dimension of this.dimensions.values()) {
+      const entity = dimension.getEntity(id);
+      if (entity) {
+        return entity;
+      }
+    }
+    return;
+  }
+
+  /** Find a player by name across all dimensions (case-insensitive). */
+  findPlayer(name: string): IEntity | undefined {
+    const normalized = name.trim().toLowerCase();
+    if (normalized.length === 0) {
+      return;
+    }
+    for (const dimension of this.dimensions.values()) {
+      const player = dimension.findPlayer(normalized);
+      if (player) {
+        return player;
+      }
+    }
+    return;
+  }
+
+  /** Flush every dimension and surface the combined failures. */
   async flush(): Promise<void> {
     const results = await Promise.allSettled(
       [...this.dimensions.values()].map(dimension => dimension.flush())
     );
-
     const failures = results.filter(
       (result): result is PromiseRejectedResult => result.status === 'rejected'
     );

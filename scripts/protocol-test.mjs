@@ -1,3 +1,10 @@
+/**
+ * Protocol regression test for the MCP 2026-07-28 handshake.
+ *
+ * It verifies that legacy `initialize` requests are rejected without closing
+ * the connection, that modern discovery works, and that the per-request
+ * envelope is required for normal requests.
+ */
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -116,10 +123,31 @@ async function main() {
     params: { _meta: envelope },
   });
   const tools = await waitFor(4);
+  const toolNames = (tools?.result?.tools ?? []).map((tool) => tool.name);
   check(
     "request with the envelope is served",
-    (tools?.result?.tools ?? []).length === 3,
-    `${(tools?.result?.tools ?? []).length} tools`,
+    toolNames.length === 21,
+    `${toolNames.length} tools`,
+  );
+  check(
+    "tool list contains block and entity tools",
+    [
+      "getBlock",
+      "setBlock",
+      "getDimensionEntities",
+      "getDimensionRawFile",
+      "getBlocksInArea",
+      "fillBlocks",
+      "deleteEntity",
+      "clearInventory",
+      "swapInventorySlots",
+      "moveEntity",
+      "getEntityPosition",
+      "setEntityPosition",
+      "createEntity",
+      "setInventory",
+    ].every((name) => toolNames.includes(name)),
+    toolNames.join(", "),
   );
   check(
     "tool list resultType is complete",

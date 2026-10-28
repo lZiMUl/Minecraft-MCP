@@ -7,6 +7,7 @@ import {
   registerDataIndexResource
 } from './data-resources.js';
 
+/** Register the block index and one resource per block. */
 export function registerBlockResources(server: McpServer): void {
   registerDataIndexResource(server, {
     name: 'minecraft/blocks',

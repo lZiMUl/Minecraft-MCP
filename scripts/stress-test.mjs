@@ -1,3 +1,8 @@
+/**
+ * Parallel-write stress test: many simultaneous setBlock calls must coalesce
+ * into a small number of snapshot writes without losing data, then survive a
+ * server restart.
+ */
 import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";

@@ -3,32 +3,18 @@ import * as z from 'zod/v4';
 
 import { WORLD_LIMITS } from '../config/world-limits.js';
 import { blockInfoSchema, toBlockInfo } from '../schemas/block-schema.js';
-import {
-  horizontalCoordinate,
-  verticalCoordinate
-} from '../schemas/coordinate-schema.js';
-import { dimensionSchema } from '../schemas/dimension-schema.js';
+import { blockPositionShape } from '../schemas/coordinate-schema.js';
+import { dimensionField } from '../schemas/dimension-schema.js';
 import { toErrorMessage } from '../utils/error-message.js';
 import { formatStates } from '../world/block-states.js';
 import { parseBlockSpec } from '../world/block-spec.js';
-import { toolError } from './result.js';
+import { coordinateRangeError, toolError } from './result.js';
 
-import type { IDimension } from '../interfaces/dimension.interface.js';
 import type { World } from '../world/world.js';
 
 const blockStatesSchema = z.record(z.string(), z.string());
 
-function rangeError(
-  dimension: IDimension,
-  x: number,
-  y: number,
-  z: number
-): ReturnType<typeof toolError> {
-  return toolError(
-    `Coordinates (${x}, ${y}, ${z}) are out of range in ${dimension.displayName} (Y: ${dimension.minY} to ${dimension.maxY - 1}).`
-  );
-}
-
+/** Register block read and placement tools. */
 export function registerBlockTools(server: McpServer, world: World): void {
   server.registerTool(
     'getBlock',
@@ -37,18 +23,8 @@ export function registerBlockTools(server: McpServer, world: World): void {
       description:
         'Get the block at the given coordinates in the given dimension, including its properties (name, hardness, light level, etc.) and its block states (for example facing=south). Each dimension has its own persisted world state; unmodified coordinates return air (minecraft:air).',
       inputSchema: z.object({
-        x: horizontalCoordinate.describe(
-          'X coordinate (-30000000 to 30000000)'
-        ),
-        y: verticalCoordinate.describe(
-          'Y coordinate, within the dimension height range'
-        ),
-        z: horizontalCoordinate.describe(
-          'Z coordinate (-30000000 to 30000000)'
-        ),
-        dimension: dimensionSchema.describe(
-          'Dimension: "overworld" (default), "the_nether" or "the_end"'
-        )
+        ...blockPositionShape,
+        dimension: dimensionField
       }),
       outputSchema: z.object({
         x: z.number(),
@@ -68,10 +44,9 @@ export function registerBlockTools(server: McpServer, world: World): void {
       try {
         const dimension = world.getDimension(dimensionType);
         if (!dimension.contains(x, y, z)) {
-          return rangeError(dimension.info, x, y, z);
+          return coordinateRangeError(dimension.info, x, y, z);
         }
-        const block = dimension.getBlock(x, y, z);
-        const states = dimension.getStates(x, y, z);
+        const { block, states } = dimension.getBlockState(x, y, z);
         return {
           content: [
             {
@@ -101,15 +76,7 @@ export function registerBlockTools(server: McpServer, world: World): void {
       description:
         'Place a block at the given coordinates in the given dimension and return the replaced block. Block states are supported: "minecraft:oak_stairs[facing=south,half=bottom]" or "oak_stairs[facing=south]". Each dimension has its own persisted world state; setting air removes the block. blockType is a block id such as "minecraft:stone" or "stone"; see the resource lzimul://minecraft/blocks for the full list.',
       inputSchema: z.object({
-        x: horizontalCoordinate.describe(
-          'X coordinate (-30000000 to 30000000)'
-        ),
-        y: verticalCoordinate.describe(
-          'Y coordinate, within the dimension height range'
-        ),
-        z: horizontalCoordinate.describe(
-          'Z coordinate (-30000000 to 30000000)'
-        ),
+        ...blockPositionShape,
         blockType: z
           .string()
           .min(1)
@@ -117,9 +84,7 @@ export function registerBlockTools(server: McpServer, world: World): void {
           .describe(
             'Block id with optional states, such as "minecraft:stone" or "minecraft:oak_stairs[facing=south]"'
           ),
-        dimension: dimensionSchema.describe(
-          'Dimension: "overworld" (default), "the_nether" or "the_end"'
-        )
+        dimension: dimensionField
       }),
       outputSchema: z.object({
         x: z.number(),
@@ -141,7 +106,7 @@ export function registerBlockTools(server: McpServer, world: World): void {
       try {
         const dimension = world.getDimension(dimensionType);
         if (!dimension.contains(x, y, z)) {
-          return rangeError(dimension.info, x, y, z);
+          return coordinateRangeError(dimension.info, x, y, z);
         }
 
         const spec = parseBlockSpec(blockType);
@@ -162,8 +127,7 @@ export function registerBlockTools(server: McpServer, world: World): void {
           );
         }
 
-        const previousBlock = dimension.getBlock(x, y, z);
-        const previousStates = dimension.getStates(x, y, z);
+        const previous = dimension.getBlockState(x, y, z);
         dimension.setBlock(x, y, z, spec.block, spec.states);
         try {
           await dimension.flush();
@@ -177,7 +141,7 @@ export function registerBlockTools(server: McpServer, world: World): void {
           content: [
             {
               type: 'text',
-              text: `Block set at (${x}, ${y}, ${z}) in ${dimension.info.displayName}: ${previousBlock.displayName} (${previousBlock.key})${formatStates(previousStates)} -> ${spec.block.displayName} (${spec.block.key})${formatStates(spec.states)}`
+              text: `Block set at (${x}, ${y}, ${z}) in ${dimension.info.displayName}: ${previous.block.displayName} (${previous.block.key})${formatStates(previous.states)} -> ${spec.block.displayName} (${spec.block.key})${formatStates(spec.states)}`
             }
           ],
           structuredContent: {
@@ -187,8 +151,8 @@ export function registerBlockTools(server: McpServer, world: World): void {
             dimension: dimension.info.key,
             block: toBlockInfo(spec.block),
             states: spec.states,
-            previous: toBlockInfo(previousBlock),
-            previousStates
+            previous: toBlockInfo(previous.block),
+            previousStates: previous.states
           }
         };
       } catch (error) {

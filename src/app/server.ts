@@ -6,6 +6,7 @@ import { registerTools } from '../tools/index.js';
 
 import type { World } from '../world/world.js';
 
+/** Assemble a fresh MCP server around one loaded world. */
 export function createServer(world: World): McpServer {
   const server = new McpServer(SERVER_INFO);
   registerTools(server, world);

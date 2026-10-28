@@ -5,6 +5,7 @@ import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import { createServer } from './app/server.js';
 import { WORLD_STORAGE } from './config/storage.js';
 import { toErrorMessage } from './utils/error-message.js';
+import { logger } from './utils/logger.js';
 import { createWorldStore } from './world/stores/index.js';
 import { World } from './world/world.js';
 
@@ -34,8 +35,8 @@ async function main(): Promise<void> {
     try {
       await world.flush();
     } catch (error) {
-      console.error(
-        `[lzimul-minecraft-mcp] Failed to flush world state on shutdown: ${toErrorMessage(error)}`
+      logger.error(
+        `Failed to flush world state on shutdown: ${toErrorMessage(error)}`
       );
       code = 1;
     }
@@ -43,8 +44,8 @@ async function main(): Promise<void> {
     try {
       await handle.close();
     } catch (error) {
-      console.error(
-        `[lzimul-minecraft-mcp] Failed to close the MCP transport: ${toErrorMessage(error)}`
+      logger.error(
+        `Failed to close the MCP transport: ${toErrorMessage(error)}`
       );
       code = 1;
     }
@@ -62,6 +63,6 @@ async function main(): Promise<void> {
 try {
   await main();
 } catch (error) {
-  console.error(`[lzimul-minecraft-mcp] Fatal: ${toErrorMessage(error)}`);
+  logger.error(`Fatal: ${toErrorMessage(error)}`);
   process.exitCode = 1;
 }
