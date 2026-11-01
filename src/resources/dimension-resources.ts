@@ -28,7 +28,7 @@ function dimensionSummary(
 }
 
 /** Full dimension state, including placed blocks and every entity/player. */
-function dimensionState(
+export function dimensionState(
   world: World,
   dimension: IDimension
 ): Record<string, unknown> {

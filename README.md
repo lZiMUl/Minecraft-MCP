@@ -10,6 +10,7 @@ Minecraft Model Context Protocol (MCP) server. It exposes the complete Minecraft
 - Dimension tools for metadata, paginated block access, entity listings and raw JSON snapshots
 - Entity and player tools with deletion, movement, exact position control, and a 9-slot hotbar plus 27-slot backpack per entity, managed through `getInventory`, `setInventory`, `clearInventory` and `swapInventorySlots`
 - World state (blocks, entities, players and inventories) is persisted per dimension as JSON and survives restarts
+- Parallel WebSocket service that broadcasts every tool call (name, arguments, result, error and timing) to all connected clients, with a full world snapshot sent on connect and on demand (`{"type":"world-request"}`)
 - log4js logging to stderr with chalk colours (error red, warn yellow, info green); stdout stays clean for the MCP transport
 - Structured tool output (`outputSchema` / `structuredContent`) plus human readable text
 - Every failure path returns a readable message instead of an unhandled exception
@@ -125,11 +126,15 @@ Each snapshot looks like this:
 
 ### Configuration
 
-| Variable            | Default        | Description                                             |
-| ------------------- | -------------- | ------------------------------------------------------- |
-| `MCP_WORLD_STORAGE` | `file`         | `file` for JSON snapshots, `memory` for volatile state  |
-| `MCP_WORLD_DIR`     | `./app/dimensions` | Directory that holds the per-dimension snapshots    |
-| `MCP_LOG_LEVEL`     | `info`         | log4js level: `trace`, `debug`, `info`, `warn`, `error` |
+| Variable            | Default            | Description                                              |
+| ------------------- | ------------------ | -------------------------------------------------------- |
+| `MCP_WORLD_STORAGE` | `file`             | `file` for JSON snapshots, `memory` for volatile state   |
+| `MCP_WORLD_DIR`     | `./app/dimensions` | Directory that holds the per-dimension snapshots         |
+| `MCP_LOG_LEVEL`     | `info`             | log4js level: `trace`, `debug`, `info`, `warn`, `error`  |
+| `MCP_WS_ENABLED`    | `true`             | Start the WebSocket fan-out service (`false` to disable) |
+| `MCP_WS_HOST`       | `127.0.0.1`        | Host/interface the WebSocket service binds to            |
+| `MCP_WS_PORT`       | `8765`             | TCP port for the WebSocket service                       |
+| `MCP_WS_PATH`       | `/`                | URL path the WebSocket service listens on                |
 
 A corrupt or oversized snapshot is moved aside as `<dimension>.json.corrupt-<uuid>` and the dimension starts empty, so a bad file never blocks startup.
 
@@ -147,6 +152,31 @@ State is accessed through `IWorldStore` (`src/interfaces/world-store.interface.t
 | ------------------ | ------------------- | ----------------------------------------------------- |
 | `FileWorldStore`   | stdio (`npm start`) | Atomic per-dimension JSON files under `MCP_WORLD_DIR` |
 | `MemoryWorldStore` | tests, `memory`     | Volatile; useful for throwaway sessions               |
+
+### WebSocket service
+
+The server runs a WebSocket fan-out service alongside the stdio MCP transport. It is enabled by default on `127.0.0.1:8765` and can be reconfigured or disabled with the `MCP_WS_*` variables above. The MCP transport is unaffected: stdout stays reserved for JSON-RPC, and a WebSocket listen failure is logged but never crashes the process.
+
+Each connected client immediately receives a **world snapshot**, then a **tool-call event** for every MCP tool invocation:
+
+```jsonc
+// On connect (and on {"type":"world-request"}):
+{ "type": "world-snapshot", "timestamp": 1730000000000, "dimensions": [ /* full per-dimension state: counts, placedBlocks, entities */ ] }
+
+// Broadcast to every client after each tool call:
+{
+  "type": "tool-call",
+  "tool": "getBlock",
+  "arguments": { "dimension": "overworld", "x": 0, "y": 320, "z": 0 },
+  "result": { "isError": true, "content": [ /* ... */ ] },
+  "isError": true,
+  "error": "Coordinates (0, 320, 0) are out of range in Overworld (Y: -64 to 319).",
+  "startedAt": 1730000000000,
+  "durationMs": 1
+}
+```
+
+A client may send `{"type":"world-request"}` (or `{"type":"world"}`) to request a fresh snapshot. The service observes tool calls by wrapping `McpServer.registerTool`, so tools added in the future are broadcast automatically.
 
 ## Resources
 
@@ -189,7 +219,7 @@ Measured on Node.js 26 (results vary by hardware):
 src/
   index.ts        Entry point
   app/            Server assembly
-  config/         Server metadata, dimensions, storage, world limits
+  config/         Server metadata, dimensions, storage, world limits, WebSocket
   data/           Generated registry data (blocks, items, entities, version)
   enums/          Enumerations (EBoundingBox, EIconTheme, EDimensionType, EEntityKind, EInventorySection, EMoveDirection)
   interfaces/     Interfaces (IBlock, IItem, IEntityType, IEntity, IEntityInventory, IDimension, IPlacedBlock, IWorldSnapshot, IWorldStore)
@@ -203,6 +233,7 @@ scripts/
   logger.mjs               Coloured stdout logger for developer scripts
   generate-data.mjs        Regenerates src/data from minecraft-data
   smoke-test.mjs           End-to-end smoke test (blocks, dimensions, entities, inventories)
+  websocket-test.mjs       WebSocket fan-out test (snapshots, tool-call broadcast)
   persistence-test.mjs     Restart test for blocks, entities and inventories
   error-test.mjs           Error fallbacks, sanitizing and storage limit tests
   stress-test.mjs          Parallel write, coalescing and restart stress test
@@ -211,17 +242,18 @@ scripts/
 
 ## Scripts
 
-| Command                 | Description                                           |
-| ----------------------- | ----------------------------------------------------- |
-| `npm run build`         | Lint, compile and generate docs                       |
-| `npm run dev`           | Build then start the server                           |
-| `npm start`             | Start the server (stdio)                              |
-| `npm test`              | Run the smoke, persistence, security and stress tests |
-| `npm run test:stress`   | Run only the parallel write stress test               |
-| `npm run generate-data` | Regenerate registry data (see below)                  |
-| `npm run clean`         | Remove build output                                   |
-| `npm run lint`          | Lint without modifying files                          |
-| `npm run lint:fix`      | Lint and auto-fix                                     |
+| Command                  | Description                                                      |
+| ------------------------ | ---------------------------------------------------------------- |
+| `npm run build`          | Lint, compile and generate docs                                  |
+| `npm run dev`            | Build then start the server                                      |
+| `npm start`              | Start the server (stdio)                                         |
+| `npm test`               | Run the smoke, WebSocket, persistence, security and stress tests |
+| `npm run test:websocket` | Run only the WebSocket fan-out test                              |
+| `npm run test:stress`    | Run only the parallel write stress test                          |
+| `npm run generate-data`  | Regenerate registry data (see below)                             |
+| `npm run clean`          | Remove build output                                              |
+| `npm run lint`           | Lint without modifying files                                     |
+| `npm run lint:fix`       | Lint and auto-fix                                                |
 
 ## Data
 
