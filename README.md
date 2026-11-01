@@ -178,6 +178,33 @@ Each connected client immediately receives a **world snapshot**, then a **tool-c
 
 A client may send `{"type":"world-request"}` (or `{"type":"world"}`) to request a fresh snapshot. The service observes tool calls by wrapping `McpServer.registerTool`, so tools added in the future are broadcast automatically.
 
+#### WebSocket TypeScript types
+
+Package consumers can import the protocol types (published via `lib/index.d.ts`) instead of hand-writing them:
+
+```ts
+import type {
+  IWorldSnapshotMessage, // server -> client: full world state on connect / world-request
+  IDimensionSnapshot, // one dimension: counts, placedBlocks, entities
+  ISnapshotPlacedBlock, // { x, y, z, block: BlockInfo, states: BlockStates }
+  IToolCallEvent, // server -> client: one tool invocation
+  IWebSocketServerMessage, // union of IWorldSnapshotMessage | IToolCallEvent
+  IWebSocketClientMessage, // client -> server: { type: 'world-request' | 'world' }
+  ToolCallListener,
+} from "@lzimul/minecraft-mcp";
+
+// Discriminate incoming messages by `msg.type`:
+function handle(msg: IWebSocketServerMessage): void {
+  if (msg.type === "world-snapshot") {
+    for (const dimension of msg.dimensions) {
+      renderDimension(dimension);
+    }
+  } else if (msg.type === "tool-call") {
+    applyToolCall(msg); // msg.tool, msg.arguments, msg.result, msg.isError, msg.error, msg.startedAt, msg.durationMs
+  }
+}
+```
+
 ## Resources
 
 | URI                                    | Description                                          |

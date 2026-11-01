@@ -6,6 +6,7 @@ import { World } from '../world/world.js';
 import { errorResource } from './error-content.js';
 
 import type { IDimension } from '../interfaces/dimension.interface.js';
+import type { IDimensionSnapshot } from '../interfaces/websocket.interface.js';
 
 /** Compact dimension row used by the dimensions index. */
 function dimensionSummary(
@@ -31,7 +32,7 @@ function dimensionSummary(
 export function dimensionState(
   world: World,
   dimension: IDimension
-): Record<string, unknown> {
+): IDimensionSnapshot {
   const simulated = world.getDimension(dimension.type);
   return {
     key: dimension.key,

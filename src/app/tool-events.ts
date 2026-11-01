@@ -3,22 +3,12 @@ import type { McpServer } from '@modelcontextprotocol/server';
 import { toErrorMessage } from '../utils/error-message.js';
 import { logger } from '../utils/logger.js';
 
-/** A single tool invocation observed by the instrumentation hook. */
-export interface IToolCallEvent {
-  readonly type: 'tool-call';
-  readonly tool: string;
-  readonly arguments: unknown;
-  readonly result: unknown;
-  readonly isError: boolean;
-  readonly error: string | null;
-  /** Epoch milliseconds when the handler started. */
-  readonly startedAt: number;
-  /** Wall-clock duration of the handler in milliseconds. */
-  readonly durationMs: number;
-}
+import type {
+  IToolCallEvent,
+  ToolCallListener
+} from '../interfaces/websocket.interface.js';
 
-/** Listener invoked after every tool call settles (success or failure). */
-export type ToolCallListener = (event: IToolCallEvent) => void;
+export type { IToolCallEvent, ToolCallListener };
 
 /**
  * Structural callback shape we intercept. The real SDK callback is narrower,

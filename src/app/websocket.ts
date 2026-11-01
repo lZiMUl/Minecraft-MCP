@@ -6,7 +6,12 @@ import { dimensionState } from '../resources/dimension-resources.js';
 import { World } from '../world/world.js';
 
 import type { IWebSocketConfig } from '../config/websocket.js';
-import type { IToolCallEvent } from './tool-events.js';
+import type {
+  IToolCallEvent,
+  IWebSocketClientMessage,
+  IWebSocketServerMessage,
+  IWorldSnapshotMessage
+} from '../interfaces/websocket.interface.js';
 
 /** Handle for the live WebSocket fan-out service. */
 export interface IWebSocketService {
@@ -19,7 +24,7 @@ export interface IWebSocketService {
 }
 
 /** Build the world snapshot sent to each client on connect. */
-function buildWorldSnapshot(world: World): unknown {
+function buildWorldSnapshot(world: World): IWorldSnapshotMessage {
   return {
     type: 'world-snapshot',
     timestamp: Date.now(),
@@ -42,12 +47,21 @@ function sendText(socket: WebSocket, text: string): void {
 }
 
 /** Serialize a payload and send it to one socket. */
-function sendObject(socket: WebSocket, payload: unknown): void {
+function sendObject(socket: WebSocket, payload: IWebSocketServerMessage): void {
   try {
     sendText(socket, JSON.stringify(payload));
   } catch (error) {
     logger.warn(`WebSocket serialize failed: ${toErrorMessage(error)}`);
   }
+}
+
+/** Narrow a parsed JSON value to a supported client control message. */
+function isClientMessage(value: unknown): value is IWebSocketClientMessage {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const type = (value as { type?: unknown }).type;
+  return type === 'world-request' || type === 'world';
 }
 
 /** Reply to a small set of client control messages. */
@@ -69,12 +83,7 @@ function handleClientMessage(
     return;
   }
 
-  if (typeof request !== 'object' || request === null) {
-    return;
-  }
-
-  const type = (request as { type?: unknown }).type;
-  if (type === 'world-request' || type === 'world') {
+  if (isClientMessage(request)) {
     sendObject(socket, buildWorldSnapshot(world));
   }
 }

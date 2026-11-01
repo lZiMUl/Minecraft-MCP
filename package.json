@@ -1,7 +1,7 @@
 {
   "name": "@lzimul/minecraft-mcp",
   "description": "Minecraft Model Context Protocol (MCP) Server",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "author": {
     "name": "lZiMUl",
     "email": "lZiMUl@lzimul.com",

@@ -96,3 +96,14 @@ try {
   logger.error(`Fatal: ${toErrorMessage(error)}`);
   process.exitCode = 1;
 }
+
+// Public WebSocket protocol types for clients importing the package.
+export type {
+  IDimensionSnapshot,
+  ISnapshotPlacedBlock,
+  IToolCallEvent,
+  IWebSocketClientMessage,
+  IWebSocketServerMessage,
+  IWorldSnapshotMessage,
+  ToolCallListener
+} from './interfaces/websocket.interface.js';
