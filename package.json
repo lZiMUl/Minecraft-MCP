@@ -1,7 +1,7 @@
 {
   "name": "@lzimul/minecraft-mcp",
   "description": "Minecraft Model Context Protocol (MCP) Server",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "author": {
     "name": "lZiMUl",
     "email": "lZiMUl@lzimul.com",
@@ -44,7 +44,8 @@
     "dev": "npm run build && npm run start",
     "generate-data": "node ./scripts/generate-data.mjs",
     "clean": "node ./scripts/clean.mjs",
-    "test": "node ./scripts/smoke-test.mjs && node ./scripts/persistence-test.mjs && node ./scripts/error-test.mjs && node ./scripts/stress-test.mjs",
+    "test": "node ./scripts/smoke-test.mjs && node ./scripts/websocket-test.mjs && node ./scripts/persistence-test.mjs && node ./scripts/error-test.mjs && node ./scripts/stress-test.mjs",
+    "test:websocket": "node ./scripts/websocket-test.mjs",
     "test:stress": "node ./scripts/stress-test.mjs",
     "prepublishOnly": "npm run build && npm test"
   },
@@ -72,6 +73,7 @@
     "@modelcontextprotocol/server": "^2.4.0",
     "chalk": "^6.0.1",
     "log4js": "^6.9.1",
+    "ws": "^8.22.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -81,6 +83,7 @@
     "@eslint/json": "^2.1.1",
     "@eslint/markdown": "^8.0.3",
     "@types/node": "^26.6.5",
+    "@types/ws": "^8.18.2",
     "@typescript-eslint/eslint-plugin": "^8.72.1",
     "@typescript-eslint/parser": "^8.72.1",
     "eslint": "^10.13.0",
