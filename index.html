@@ -18,6 +18,7 @@
 <li>Dimension tools for metadata, paginated block access, entity listings and raw JSON snapshots</li>
 <li>Entity and player tools with deletion, movement, exact position control, and a 9-slot hotbar plus 27-slot backpack per entity, managed through <code>getInventory</code>, <code>setInventory</code>, <code>clearInventory</code> and <code>swapInventorySlots</code></li>
 <li>World state (blocks, entities, players and inventories) is persisted per dimension as JSON and survives restarts</li>
+<li>Parallel WebSocket service that broadcasts every tool call (name, arguments, result, error and timing) to all connected clients, with a full world snapshot sent on connect and on demand (<code>{&quot;type&quot;:&quot;world-request&quot;}</code>)</li>
 <li>log4js logging to stderr with chalk colours (error red, warn yellow, info green); stdout stays clean for the MCP transport</li>
 <li>Structured tool output (<code>outputSchema</code> / <code>structuredContent</code>) plus human readable text</li>
 <li>Every failure path returns a readable message instead of an unhandled exception</li>
@@ -187,6 +188,26 @@
 <td><code>info</code></td>
 <td>log4js level: <code>trace</code>, <code>debug</code>, <code>info</code>, <code>warn</code>, <code>error</code></td>
 </tr>
+<tr>
+<td><code>MCP_WS_ENABLED</code></td>
+<td><code>true</code></td>
+<td>Start the WebSocket fan-out service (<code>false</code> to disable)</td>
+</tr>
+<tr>
+<td><code>MCP_WS_HOST</code></td>
+<td><code>127.0.0.1</code></td>
+<td>Host/interface the WebSocket service binds to</td>
+</tr>
+<tr>
+<td><code>MCP_WS_PORT</code></td>
+<td><code>8765</code></td>
+<td>TCP port for the WebSocket service</td>
+</tr>
+<tr>
+<td><code>MCP_WS_PATH</code></td>
+<td><code>/</code></td>
+<td>URL path the WebSocket service listens on</td>
+</tr>
 </tbody>
 </table>
 <p>A corrupt or oversized snapshot is moved aside as <code>&lt;dimension&gt;.json.corrupt-&lt;uuid&gt;</code> and the dimension starts empty, so a bad file never blocks startup.</p>
@@ -216,6 +237,18 @@
 </tr>
 </tbody>
 </table>
+<h3 id="websocket-service" class="tsd-anchor-link">WebSocket service<a href="#websocket-service" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h3>
+<p>The server runs a WebSocket fan-out service alongside the stdio MCP transport. It is enabled by default on <code>127.0.0.1:8765</code> and can be reconfigured or disabled with the <code>MCP_WS_*</code> variables above. The MCP transport is unaffected: stdout stays reserved for JSON-RPC, and a WebSocket listen failure is logged but never crashes the process.</p>
+<p>Each connected client immediately receives a <strong>world snapshot</strong>, then a <strong>tool-call event</strong> for every MCP tool invocation:</p>
+<pre><code class="jsonc"><span class="hl-4">// On connect (and on {&quot;type&quot;:&quot;world-request&quot;}):</span><br/><span class="hl-0">{ </span><span class="hl-1">&quot;type&quot;</span><span class="hl-0">: </span><span class="hl-2">&quot;world-snapshot&quot;</span><span class="hl-0">, </span><span class="hl-1">&quot;timestamp&quot;</span><span class="hl-0">: </span><span class="hl-3">1730000000000</span><span class="hl-0">, </span><span class="hl-1">&quot;dimensions&quot;</span><span class="hl-0">: [ </span><span class="hl-4">/* full per-dimension state: counts, placedBlocks, entities */</span><span class="hl-0"> ] }</span><br/><br/><span class="hl-4">// Broadcast to every client after each tool call:</span><br/><span class="hl-0">{</span><br/><span class="hl-0">  </span><span class="hl-1">&quot;type&quot;</span><span class="hl-0">: </span><span class="hl-2">&quot;tool-call&quot;</span><span class="hl-0">,</span><br/><span class="hl-0">  </span><span class="hl-1">&quot;tool&quot;</span><span class="hl-0">: </span><span class="hl-2">&quot;getBlock&quot;</span><span class="hl-0">,</span><br/><span class="hl-0">  </span><span class="hl-1">&quot;arguments&quot;</span><span class="hl-0">: { </span><span class="hl-1">&quot;dimension&quot;</span><span class="hl-0">: </span><span class="hl-2">&quot;overworld&quot;</span><span class="hl-0">, </span><span class="hl-1">&quot;x&quot;</span><span class="hl-0">: </span><span class="hl-3">0</span><span class="hl-0">, </span><span class="hl-1">&quot;y&quot;</span><span class="hl-0">: </span><span class="hl-3">320</span><span class="hl-0">, </span><span class="hl-1">&quot;z&quot;</span><span class="hl-0">: </span><span class="hl-3">0</span><span class="hl-0"> },</span><br/><span class="hl-0">  </span><span class="hl-1">&quot;result&quot;</span><span class="hl-0">: { </span><span class="hl-1">&quot;isError&quot;</span><span class="hl-0">: </span><span class="hl-5">true</span><span class="hl-0">, </span><span class="hl-1">&quot;content&quot;</span><span class="hl-0">: [ </span><span class="hl-4">/* ... */</span><span class="hl-0"> ] },</span><br/><span class="hl-0">  </span><span class="hl-1">&quot;isError&quot;</span><span class="hl-0">: </span><span class="hl-5">true</span><span class="hl-0">,</span><br/><span class="hl-0">  </span><span class="hl-1">&quot;error&quot;</span><span class="hl-0">: </span><span class="hl-2">&quot;Coordinates (0, 320, 0) are out of range in Overworld (Y: -64 to 319).&quot;</span><span class="hl-0">,</span><br/><span class="hl-0">  </span><span class="hl-1">&quot;startedAt&quot;</span><span class="hl-0">: </span><span class="hl-3">1730000000000</span><span class="hl-0">,</span><br/><span class="hl-0">  </span><span class="hl-1">&quot;durationMs&quot;</span><span class="hl-0">: </span><span class="hl-3">1</span><br/><span class="hl-0">}</span>
+</code><button type="button">Copy</button></pre>
+
+<p>A client may send <code>{&quot;type&quot;:&quot;world-request&quot;}</code> (or <code>{&quot;type&quot;:&quot;world&quot;}</code>) to request a fresh snapshot. The service observes tool calls by wrapping <code>McpServer.registerTool</code>, so tools added in the future are broadcast automatically.</p>
+<h4 id="websocket-typescript-types" class="tsd-anchor-link">WebSocket TypeScript types<a href="#websocket-typescript-types" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h4>
+<p>Package consumers can import the protocol types (published via <code>lib/index.d.ts</code>) instead of hand-writing them:</p>
+<pre><code class="ts"><span class="hl-6">import</span><span class="hl-0"> </span><span class="hl-6">type</span><span class="hl-0"> {</span><br/><span class="hl-0">  </span><span class="hl-7">IWorldSnapshotMessage</span><span class="hl-0">, </span><span class="hl-4">// server -&gt; client: full world state on connect / world-request</span><br/><span class="hl-0">  </span><span class="hl-7">IDimensionSnapshot</span><span class="hl-0">, </span><span class="hl-4">// one dimension: counts, placedBlocks, entities</span><br/><span class="hl-0">  </span><span class="hl-7">ISnapshotPlacedBlock</span><span class="hl-0">, </span><span class="hl-4">// { x, y, z, block: BlockInfo, states: BlockStates }</span><br/><span class="hl-0">  </span><span class="hl-7">IToolCallEvent</span><span class="hl-0">, </span><span class="hl-4">// server -&gt; client: one tool invocation</span><br/><span class="hl-0">  </span><span class="hl-7">IWebSocketServerMessage</span><span class="hl-0">, </span><span class="hl-4">// union of IWorldSnapshotMessage | IToolCallEvent</span><br/><span class="hl-0">  </span><span class="hl-7">IWebSocketClientMessage</span><span class="hl-0">, </span><span class="hl-4">// client -&gt; server: { type: &#39;world-request&#39; | &#39;world&#39; }</span><br/><span class="hl-0">  </span><span class="hl-7">ToolCallListener</span><span class="hl-0">,</span><br/><span class="hl-0">} </span><span class="hl-6">from</span><span class="hl-0"> </span><span class="hl-2">&quot;@lzimul/minecraft-mcp&quot;</span><span class="hl-0">;</span><br/><br/><span class="hl-4">// Discriminate incoming messages by `msg.type`:</span><br/><span class="hl-5">function</span><span class="hl-0"> </span><span class="hl-8">handle</span><span class="hl-0">(</span><span class="hl-7">msg</span><span class="hl-0">: </span><span class="hl-9">IWebSocketServerMessage</span><span class="hl-0">): </span><span class="hl-9">void</span><span class="hl-0"> {</span><br/><span class="hl-0">  </span><span class="hl-6">if</span><span class="hl-0"> (</span><span class="hl-7">msg</span><span class="hl-0">.</span><span class="hl-7">type</span><span class="hl-0"> === </span><span class="hl-2">&quot;world-snapshot&quot;</span><span class="hl-0">) {</span><br/><span class="hl-0">    </span><span class="hl-6">for</span><span class="hl-0"> (</span><span class="hl-5">const</span><span class="hl-0"> </span><span class="hl-10">dimension</span><span class="hl-0"> </span><span class="hl-5">of</span><span class="hl-0"> </span><span class="hl-7">msg</span><span class="hl-0">.</span><span class="hl-7">dimensions</span><span class="hl-0">) {</span><br/><span class="hl-0">      </span><span class="hl-8">renderDimension</span><span class="hl-0">(</span><span class="hl-7">dimension</span><span class="hl-0">);</span><br/><span class="hl-0">    }</span><br/><span class="hl-0">  } </span><span class="hl-6">else</span><span class="hl-0"> </span><span class="hl-6">if</span><span class="hl-0"> (</span><span class="hl-7">msg</span><span class="hl-0">.</span><span class="hl-7">type</span><span class="hl-0"> === </span><span class="hl-2">&quot;tool-call&quot;</span><span class="hl-0">) {</span><br/><span class="hl-0">    </span><span class="hl-8">applyToolCall</span><span class="hl-0">(</span><span class="hl-7">msg</span><span class="hl-0">); </span><span class="hl-4">// msg.tool, msg.arguments, msg.result, msg.isError, msg.error, msg.startedAt, msg.durationMs</span><br/><span class="hl-0">  }</span><br/><span class="hl-0">}</span>
+</code><button type="button">Copy</button></pre>
+
 <h2 id="resources" class="tsd-anchor-link">Resources<a href="#resources" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
 <table>
 <thead>
@@ -283,7 +316,7 @@
 <pre><code class="text">src/
   index.ts        Entry point
   app/            Server assembly
-  config/         Server metadata, dimensions, storage, world limits
+  config/         Server metadata, dimensions, storage, world limits, WebSocket
   data/           Generated registry data (blocks, items, entities, version)
   enums/          Enumerations (EBoundingBox, EIconTheme, EDimensionType, EEntityKind, EInventorySection, EMoveDirection)
   interfaces/     Interfaces (IBlock, IItem, IEntityType, IEntity, IEntityInventory, IDimension, IPlacedBlock, IWorldSnapshot, IWorldStore)
@@ -297,6 +330,7 @@ scripts/
   logger.mjs               Coloured stdout logger for developer scripts
   generate-data.mjs        Regenerates src/data from minecraft-data
   smoke-test.mjs           End-to-end smoke test (blocks, dimensions, entities, inventories)
+  websocket-test.mjs       WebSocket fan-out test (snapshots, tool-call broadcast)
   persistence-test.mjs     Restart test for blocks, entities and inventories
   error-test.mjs           Error fallbacks, sanitizing and storage limit tests
   stress-test.mjs          Parallel write, coalescing and restart stress test
@@ -326,7 +360,11 @@ scripts/
 </tr>
 <tr>
 <td><code>npm test</code></td>
-<td>Run the smoke, persistence, security and stress tests</td>
+<td>Run the smoke, WebSocket, persistence, security and stress tests</td>
+</tr>
+<tr>
+<td><code>npm run test:websocket</code></td>
+<td>Run only the WebSocket fan-out test</td>
 </tr>
 <tr>
 <td><code>npm run test:stress</code></td>
@@ -352,7 +390,7 @@ scripts/
 </table>
 <h2 id="data" class="tsd-anchor-link">Data<a href="#data" aria-label="Permalink" class="tsd-anchor-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="assets/icons.svg#icon-anchor"></use></svg></a></h2>
 <p>Registry data is generated from <a href="https://github.com/PrismarineJS/minecraft-data">PrismarineJS/minecraft-data</a>. To regenerate for a specific version:</p>
-<pre><code class="bash"><span class="hl-4">node</span><span class="hl-0"> </span><span class="hl-2">scripts/generate-data.mjs</span><span class="hl-0"> &lt;</span><span class="hl-2">versio</span><span class="hl-0">n&gt; [blocks.json] [items.json] [entities.json]</span>
+<pre><code class="bash"><span class="hl-8">node</span><span class="hl-0"> </span><span class="hl-2">scripts/generate-data.mjs</span><span class="hl-0"> &lt;</span><span class="hl-2">versio</span><span class="hl-0">n&gt; [blocks.json] [items.json] [entities.json]</span>
 </code><button type="button">Copy</button></pre>
 
 <p>When local JSON files are provided they are used directly, otherwise the data is fetched from GitHub. The fourth argument is optional and only needed for a custom entity registry; without it the entity list is fetched from the same minecraft-data release. The data version is exported as <code>MINECRAFT_DATA_VERSION</code> and used in all descriptions.</p>
@@ -386,7 +424,11 @@ scripts/
 <ul>
 <li><a href="#configuration"><span>Configuration</span></a></li>
 <li><a href="#logging"><span>Logging</span></a></li>
-<li><a href="#storage-backends"><span>Storage backends</span></a></li></ul></li>
+<li><a href="#storage-backends"><span>Storage backends</span></a></li>
+<li><a href="#websocket-service"><span>Web<wbr/>Socket service</span></a></li>
+<li>
+<ul>
+<li><a href="#websocket-typescript-types"><span>Web<wbr/>Socket <wbr/>Type<wbr/>Script types</span></a></li></ul></li></ul></li>
 <li><a href="#resources"><span>Resources</span></a></li>
 <li><a href="#security"><span>Security</span></a></li>
 <li><a href="#performance"><span>Performance</span></a></li>
