@@ -155,9 +155,9 @@ State is accessed through `IWorldStore` (`src/interfaces/world-store.interface.t
 
 ### WebSocket service
 
-The server runs a WebSocket fan-out service alongside the stdio MCP transport. It is enabled by default on `127.0.0.1:8765` and can be reconfigured or disabled with the `MCP_WS_*` variables above. The MCP transport is unaffected: stdout stays reserved for JSON-RPC, and a WebSocket listen failure is logged but never crashes the process.
+The server can run a WebSocket fan-out service alongside the stdio MCP transport, but it should be treated as a privileged telemetry channel. Keep it **disabled by default** unless you explicitly need it, and enable it only with access controls (for example: an origin allow-list and/or a shared token presented during the upgrade request). Bind/listen settings can still be configured with the `MCP_WS_*` variables above. The MCP transport is unaffected: stdout stays reserved for JSON-RPC, and a WebSocket listen failure is logged but never crashes the process.
 
-Each connected client immediately receives a **world snapshot**, then a **tool-call event** for every MCP tool invocation:
+When enabled, authenticated/authorized clients receive a **world snapshot** right after the handshake (pushed on a short delay so clients that attach their message listener after `open` still catch it), then a **tool-call event** for every MCP tool invocation:
 
 ```jsonc
 // On connect (and on {"type":"world-request"}):

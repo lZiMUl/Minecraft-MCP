@@ -13,6 +13,17 @@ import type {
   IWorldSnapshotMessage
 } from '../interfaces/websocket.interface.js';
 
+/**
+ * Delay before the initial world snapshot is pushed on connect.
+ *
+ * Writing the snapshot in the same tick as the HTTP upgrade response lets
+ * both writes reach the client in a single TCP read; the `ws` client then
+ * emits `open` and `message` back-to-back, so a client that awaits `open`
+ * before attaching its message listener silently loses the snapshot. One
+ * short tick guarantees the snapshot arrives in its own read.
+ */
+const INITIAL_SNAPSHOT_DELAY_MS = 25;
+
 /** Handle for the live WebSocket fan-out service. */
 export interface IWebSocketService {
   /** Broadcast a tool-call event to every connected client. */
@@ -100,6 +111,7 @@ export function startWebSocketService(
   config: IWebSocketConfig
 ): IWebSocketService {
   const clients = new Set<WebSocket>();
+  const pendingSnapshots = new Set<ReturnType<typeof setTimeout>>();
 
   const wss = new WebSocketServer({
     host: config.host,
@@ -115,7 +127,19 @@ export function startWebSocketService(
     clients.add(socket);
     logger.info(`WebSocket client connected (${clients.size} client(s))`);
 
-    sendObject(socket, buildWorldSnapshot(world));
+    // Defer the initial snapshot so it cannot coalesce with the HTTP
+    // upgrade response in one TCP read (see INITIAL_SNAPSHOT_DELAY_MS).
+    const snapshotTimer = setTimeout(() => {
+      pendingSnapshots.delete(snapshotTimer);
+      try {
+        sendObject(socket, buildWorldSnapshot(world));
+      } catch (error) {
+        logger.warn(
+          `WebSocket initial snapshot failed: ${toErrorMessage(error)}`
+        );
+      }
+    }, INITIAL_SNAPSHOT_DELAY_MS);
+    pendingSnapshots.add(snapshotTimer);
 
     socket.on('message', data => {
       handleClientMessage(world, socket, data);
@@ -153,6 +177,11 @@ export function startWebSocketService(
   }
 
   async function close(): Promise<void> {
+    for (const snapshotTimer of pendingSnapshots) {
+      clearTimeout(snapshotTimer);
+    }
+    pendingSnapshots.clear();
+
     for (const socket of clients) {
       try {
         socket.close(1001, 'Server shutting down');
