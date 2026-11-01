@@ -97,7 +97,7 @@ async function main() {
     results[1]?.result?.resultType,
   );
   check("server title", serverInfo?.title === "lZiMUl Minecraft MCP");
-  check("server version", serverInfo?.version === "1.0.6", serverInfo?.version);
+  check("server version", serverInfo?.version === "1.0.7", serverInfo?.version);
   check(
     "description mentions data version and counts",
     serverInfo?.description?.includes(

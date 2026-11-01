@@ -9,7 +9,7 @@ export const SERVER_INFO = {
   name: '@lzimul/minecraft-mcp',
   title: 'lZiMUl Minecraft MCP',
   description: `Minecraft Model Context Protocol server (Java Edition ${MINECRAFT_DATA_VERSION}): exposes all ${MINECRAFT_BLOCK_COUNT} blocks, ${MINECRAFT_ITEM_COUNT} items and ${MINECRAFT_ENTITY_COUNT} entity types with their properties as resources, plus tools to read, place, query and fill blocks, inspect dimensions, create, move and delete entities and players, set entity positions, and manage their hotbar and backpack inventories.`,
-  version: '1.0.6',
+  version: '1.0.7',
   websiteUrl: 'https://projects.lzimul.com/minecraft-mcp',
   icons: [
     {

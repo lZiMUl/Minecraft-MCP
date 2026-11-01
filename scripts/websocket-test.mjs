@@ -84,14 +84,17 @@ const call = (id, name, args) =>
 
 // --- WebSocket helpers ------------------------------------------------------
 
-/** Connect with retries while the server is still binding the port. */
+/** Connect with retries while the server is still binding the port. The
+ * message collector is attached at construction so the on-connect snapshot
+ * can never be missed. */
 function connect(target, attempts = 50) {
   return new Promise((resolve, reject) => {
     let tries = 0;
     const attempt = () => {
       tries++;
       const socket = new WebSocket(target);
-      socket.on("open", () => resolve(socket));
+      const messages = collect(socket);
+      socket.on("open", () => resolve({ socket, messages }));
       socket.on("error", (err) => {
         if (tries >= attempts) reject(err);
         else setTimeout(attempt, 100);
@@ -128,9 +131,9 @@ async function waitFor(predicate, timeoutMs = 5000) {
 
 async function main() {
   const ws1 = await connect(url);
-  const messages1 = collect(ws1);
+  const messages1 = ws1.messages;
   const ws2 = await connect(url);
-  const messages2 = collect(ws2);
+  const messages2 = ws2.messages;
 
   // Both clients get the world snapshot on connect.
   await waitFor(() => messages1.some((m) => m.type === "world-snapshot"));
@@ -151,9 +154,12 @@ async function main() {
   );
 
   await waitFor(() => messages2.some((m) => m.type === "world-snapshot"));
+  const snapshot2 = messages2.find((m) => m.type === "world-snapshot");
+  check("client 2 receives world-snapshot on connect", Boolean(snapshot2));
   check(
-    "client 2 receives world-snapshot on connect",
-    messages2.some((m) => m.type === "world-snapshot"),
+    "client 2 snapshot exposes all three dimensions",
+    (snapshot2?.dimensions ?? []).length === 3,
+    `got ${(snapshot2?.dimensions ?? []).length}`,
   );
 
   // Bring the MCP session up.
@@ -219,7 +225,7 @@ async function main() {
   );
 
   // A client can re-request the world snapshot.
-  ws1.send(JSON.stringify({ type: "world-request" }));
+  ws1.socket.send(JSON.stringify({ type: "world-request" }));
   await waitFor(
     () => messages1.filter((m) => m.type === "world-snapshot").length >= 2,
   );
@@ -228,8 +234,8 @@ async function main() {
     messages1.filter((m) => m.type === "world-snapshot").length >= 2,
   );
 
-  ws1.close();
-  ws2.close();
+  ws1.socket.close();
+  ws2.socket.close();
 
   let failed = 0;
   for (const c of checks) {
