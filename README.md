@@ -131,7 +131,7 @@ Each snapshot looks like this:
 | `MCP_WORLD_STORAGE` | `file`             | `file` for JSON snapshots, `memory` for volatile state   |
 | `MCP_WORLD_DIR`     | `./app/dimensions` | Directory that holds the per-dimension snapshots         |
 | `MCP_LOG_LEVEL`     | `info`             | log4js level: `trace`, `debug`, `info`, `warn`, `error`  |
-| `MCP_WS_ENABLED`    | `true`             | Start the WebSocket fan-out service (`false` to disable) |
+| `MCP_WS_ENABLED`    | `false`            | Start the WebSocket fan-out service (`false` to disable) |
 | `MCP_WS_HOST`       | `127.0.0.1`        | Host/interface the WebSocket service binds to            |
 | `MCP_WS_PORT`       | `8765`             | TCP port for the WebSocket service                       |
 | `MCP_WS_PATH`       | `/`                | URL path the WebSocket service listens on                |
